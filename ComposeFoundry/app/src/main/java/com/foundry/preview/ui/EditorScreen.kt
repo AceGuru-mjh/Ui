@@ -17,7 +17,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.foundry.preview.engine.Diagnostic
 import com.foundry.preview.engine.DiagnosticLevel
-import com.foundry.preview.engine.DiagnosticsEngine
 import com.foundry.preview.state.FoundryViewModel
 
 @Composable
@@ -44,7 +42,7 @@ fun EditorScreen(viewModel: FoundryViewModel) {
             .padding(12.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text(
                 text = "DSL Editor",
