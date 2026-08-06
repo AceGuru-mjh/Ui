@@ -1,0 +1,148 @@
+{
+  "version": "1.0",
+  "theme": {
+    "primaryColor": "#FF6200EE",
+    "backgroundColor": "#FFF5F5F5",
+    "surfaceColor": "#FFFFFFFF",
+    "textColor": "#FF1A1A2E",
+    "isDark": false
+  },
+  "root": {
+    "type": "Column",
+    "modifier": {
+      "fillMaxWidth": true,
+      "fillMaxHeight": true,
+      "padding": { "all": 24 },
+      "background": "#FFF5F5F5"
+    },
+    "children": [
+      {
+        "type": "Text",
+        "attributes": {
+          "text": "Compose Foundry",
+          "fontSize": "28",
+          "fontWeight": "bold",
+          "color": "#FF1A1A2E"
+        },
+        "modifier": { "padding": { "bottom": 4 } }
+      },
+      {
+        "type": "Text",
+        "attributes": {
+          "text": "On-Device UI Preview Engine",
+          "fontSize": "14",
+          "color": "#FF888888"
+        },
+        "modifier": { "padding": { "bottom": 24 } }
+      },
+      {
+        "type": "Card",
+        "modifier": {
+          "fillMaxWidth": true,
+          "cornerRadius": 12,
+          "elevation": 4,
+          "padding": { "bottom": 16 }
+        },
+        "children": [
+          {
+            "type": "Column",
+            "modifier": { "padding": { "all": 16 } },
+            "children": [
+              {
+                "type": "Text",
+                "attributes": {
+                  "text": "Preview Card",
+                  "fontSize": "18",
+                  "fontWeight": "bold"
+                },
+                "modifier": { "padding": { "bottom": 8 } }
+              },
+              {
+                "type": "Text",
+                "attributes": {
+                  "text": "This card is rendered from the .androidui DSL.",
+                  "fontSize": "14",
+                  "color": "#FF666666"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Row",
+        "modifier": {
+          "fillMaxWidth": true,
+          "padding": { "bottom": 16 },
+          "horizontalArrangement": "spacebetween"
+        },
+        "children": [
+          {
+            "type": "Button",
+            "attributes": { "text": "Primary" }
+          },
+          {
+            "type": "Button",
+            "attributes": { "text": "Secondary" }
+          }
+        ]
+      },
+      {
+        "type": "Divider",
+        "modifier": { "padding": { "bottom": 16 } }
+      },
+      {
+        "type": "Row",
+        "modifier": {
+          "fillMaxWidth": true,
+          "padding": { "bottom": 16 },
+          "verticalAlignment": "center"
+        },
+        "children": [
+          {
+            "type": "Image",
+            "attributes": { "contentDescription": "Avatar" },
+            "modifier": { "width": 48, "height": 48, "cornerRadius": 24 }
+          },
+          {
+            "type": "Column",
+            "modifier": { "padding": { "start": 12 } },
+            "children": [
+              {
+                "type": "Text",
+                "attributes": { "text": "User Name", "fontSize": "16", "fontWeight": "medium" }
+              },
+              {
+                "type": "Text",
+                "attributes": { "text": "user@example.com", "fontSize": "12", "color": "#FF999999" }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TextField",
+        "attributes": {
+          "label": "Input",
+          "placeholder": "Type something...",
+          "value": ""
+        },
+        "modifier": { "fillMaxWidth": true, "padding": { "bottom": 16 } }
+      },
+      {
+        "type": "Spacer",
+        "modifier": { "fillMaxHeight": true }
+      },
+      {
+        "type": "Text",
+        "attributes": {
+          "text": "Powered by ComposeFoundry v1.0",
+          "fontSize": "11",
+          "color": "#FFAAAAAA",
+          "textAlign": "center"
+        },
+        "modifier": { "fillMaxWidth": true }
+      }
+    ]
+  }
+}
