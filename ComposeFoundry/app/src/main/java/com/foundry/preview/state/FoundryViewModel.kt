@@ -3,13 +3,18 @@ package com.foundry.preview.state
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
+import com.foundry.preview.dsl.ThemeConfig
 import com.foundry.preview.dsl.UiDocument
+import com.foundry.preview.dsl.UiElement
 import com.foundry.preview.dsl.UiParser
 import com.foundry.preview.dsl.UiValidator
+import com.foundry.preview.dsl.XmlLayoutParser
 import com.foundry.preview.engine.DiagnosticsEngine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class FoundryViewModel : ViewModel() {
 
@@ -34,11 +39,21 @@ class FoundryViewModel : ViewModel() {
     private val _statusMessage = MutableStateFlow("")
     val statusMessage: StateFlow<String> = _statusMessage.asStateFlow()
 
+    private val _zoomLevel = MutableStateFlow(1.0f)
+    val zoomLevel: StateFlow<Float> = _zoomLevel.asStateFlow()
+
     private val undoStack = mutableListOf<String>()
     private val redoStack = mutableListOf<String>()
 
     val canUndo: Boolean get() = undoStack.isNotEmpty()
     val canRedo: Boolean get() = redoStack.isNotEmpty()
+
+    private val prettyJson = Json {
+        prettyPrint = true
+        ignoreUnknownKeys = true
+        isLenient = true
+        coerceInputValues = true
+    }
 
     fun initializeWithSample(dsl: String) {
         if (_code.value.isEmpty()) {
@@ -113,6 +128,18 @@ class FoundryViewModel : ViewModel() {
         }
     }
 
+    fun zoomIn() {
+        _zoomLevel.value = (_zoomLevel.value + 0.25f).coerceAtMost(3.0f)
+    }
+
+    fun zoomOut() {
+        _zoomLevel.value = (_zoomLevel.value - 0.25f).coerceAtLeast(0.5f)
+    }
+
+    fun resetZoom() {
+        _zoomLevel.value = 1.0f
+    }
+
     fun insertComponent(dslSnippet: String) {
         undoStack.add(_code.value)
         if (undoStack.size > 50) undoStack.removeAt(0)
@@ -134,7 +161,7 @@ class FoundryViewModel : ViewModel() {
         }
     }
 
-    fun importFromUri(context: Context, uri: Uri) {
+    fun importJsonFromUri(context: Context, uri: Uri) {
         try {
             val content = context.contentResolver.openInputStream(uri)
                 ?.bufferedReader()?.use { it.readText() }
@@ -143,10 +170,43 @@ class FoundryViewModel : ViewModel() {
                 redoStack.clear()
                 _code.value = content
                 render()
-                _statusMessage.value = "Imported successfully"
+                _statusMessage.value = "JSON imported"
             }
         } catch (e: Exception) {
             _statusMessage.value = "Import failed: ${e.message}"
+        }
+    }
+
+    fun importXmlFromUri(context: Context, uri: Uri) {
+        try {
+            val xmlContent = context.contentResolver.openInputStream(uri)
+                ?.bufferedReader()?.use { it.readText() }
+            if (xmlContent == null) {
+                _statusMessage.value = "Failed to read XML file"
+                return
+            }
+
+            val xmlParser = XmlLayoutParser()
+            xmlParser.parse(xmlContent).fold(
+                onSuccess = { rootElement ->
+                    val doc = UiDocument(
+                        version = "1.0",
+                        theme = ThemeConfig(),
+                        root = rootElement
+                    )
+                    val jsonString = prettyJson.encodeToString(doc)
+                    undoStack.add(_code.value)
+                    redoStack.clear()
+                    _code.value = jsonString
+                    render()
+                    _statusMessage.value = "XML layout imported and converted"
+                },
+                onFailure = { e ->
+                    _statusMessage.value = "XML parse failed: ${e.message}"
+                }
+            )
+        } catch (e: Exception) {
+            _statusMessage.value = "XML import failed: ${e.message}"
         }
     }
 

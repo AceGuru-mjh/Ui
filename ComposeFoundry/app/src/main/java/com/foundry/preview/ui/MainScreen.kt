@@ -8,10 +8,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Preview
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -41,10 +41,16 @@ fun MainScreen(viewModel: FoundryViewModel) {
     val statusMessage by viewModel.statusMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val openFileLauncher = rememberLauncherForActivityResult(
+    val openJsonLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
-        uri?.let { viewModel.importFromUri(context, it) }
+        uri?.let { viewModel.importJsonFromUri(context, it) }
+    }
+
+    val openXmlLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { viewModel.importXmlFromUri(context, it) }
     }
 
     val createFileLauncher = rememberLauncherForActivityResult(
@@ -70,8 +76,11 @@ fun MainScreen(viewModel: FoundryViewModel) {
                 TopAppBar(
                     title = { Text("ComposeFoundry") },
                     actions = {
-                        TextButton(onClick = { openFileLauncher.launch(arrayOf("application/json", "*/*")) }) {
-                            Text("Open")
+                        TextButton(onClick = { openJsonLauncher.launch(arrayOf("application/json", "*/*")) }) {
+                            Text("JSON")
+                        }
+                        TextButton(onClick = { openXmlLauncher.launch(arrayOf("text/xml", "application/xml", "*/*")) }) {
+                            Text("XML")
                         }
                         TextButton(onClick = { createFileLauncher.launch("preview.androidui.json") }) {
                             Text("Save")
@@ -102,6 +111,12 @@ fun MainScreen(viewModel: FoundryViewModel) {
                         icon = { Icon(Icons.Filled.Widgets, contentDescription = "Components") },
                         label = { Text("Components") }
                     )
+                    NavigationBarItem(
+                        selected = selectedTab == 3,
+                        onClick = { viewModel.selectTab(3) },
+                        icon = { Icon(Icons.Filled.Search, contentDescription = "Inspect") },
+                        label = { Text("Inspect") }
+                    )
                 }
             }
         ) { paddingValues ->
@@ -114,6 +129,7 @@ fun MainScreen(viewModel: FoundryViewModel) {
                     0 -> EditorScreen(viewModel = viewModel)
                     1 -> PreviewScreen(viewModel = viewModel)
                     2 -> ComponentsScreen(viewModel = viewModel)
+                    3 -> InspectScreen(viewModel = viewModel)
                 }
             }
         }
