@@ -75,6 +75,12 @@ dependencies {
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
+    // Library modules
+    implementation(project(":foundry-gradient"))
+    implementation(project(":foundry-animation"))
+    implementation(project(":foundry-codegen"))
+    implementation(project(":foundry-a11y"))
+
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

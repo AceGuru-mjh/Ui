@@ -16,3 +16,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "ComposeFoundry"
 include(":app")
+include(":foundry-gradient")
+include(":foundry-animation")
+include(":foundry-codegen")
+include(":foundry-a11y")
