@@ -63,7 +63,7 @@ object GradientBrushBuilder {
     private fun parseTileMode(mode: String): TileMode {
         return when (mode.lowercase()) {
             "repeat" -> TileMode.Repeated
-            "mirror" -> TileMode.Mirrored
+            "mirror" -> TileMode.Mirror
             else -> TileMode.Clamp
         }
     }

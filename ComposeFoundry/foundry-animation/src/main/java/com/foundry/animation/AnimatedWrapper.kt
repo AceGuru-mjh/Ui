@@ -75,8 +75,8 @@ fun AnimatedWrapper(
         FoundryAnimationType.SLIDE_IN_LEFT -> {
             AnimatedVisibility(
                 visible = isVisible,
-                enter = slideInHorizontally(animationSpec = animSpec, initialOffsetX = { -it }),
-                exit = slideOutHorizontally(targetOffsetX = { -it }),
+                enter = slideInHorizontally(animationSpec = AnimationParser.buildOffsetAnimationSpec(spec), initialOffsetX = { -it }),
+                exit = slideOutHorizontally(animationSpec = AnimationParser.buildOffsetAnimationSpec(spec), targetOffsetX = { -it }),
                 modifier = modifier
             ) { content() }
         }
@@ -84,8 +84,8 @@ fun AnimatedWrapper(
         FoundryAnimationType.SLIDE_IN_RIGHT -> {
             AnimatedVisibility(
                 visible = isVisible,
-                enter = slideInHorizontally(animationSpec = animSpec, initialOffsetX = { it }),
-                exit = slideOutHorizontally(targetOffsetX = { it }),
+                enter = slideInHorizontally(animationSpec = AnimationParser.buildOffsetAnimationSpec(spec), initialOffsetX = { it }),
+                exit = slideOutHorizontally(animationSpec = AnimationParser.buildOffsetAnimationSpec(spec), targetOffsetX = { it }),
                 modifier = modifier
             ) { content() }
         }
@@ -93,8 +93,8 @@ fun AnimatedWrapper(
         FoundryAnimationType.SLIDE_IN_TOP -> {
             AnimatedVisibility(
                 visible = isVisible,
-                enter = slideInVertically(animationSpec = animSpec, initialOffsetY = { -it }),
-                exit = slideOutVertically(targetOffsetY = { -it }),
+                enter = slideInVertically(animationSpec = AnimationParser.buildOffsetAnimationSpec(spec), initialOffsetY = { -it }),
+                exit = slideOutVertically(animationSpec = AnimationParser.buildOffsetAnimationSpec(spec), targetOffsetY = { -it }),
                 modifier = modifier
             ) { content() }
         }
@@ -102,8 +102,8 @@ fun AnimatedWrapper(
         FoundryAnimationType.SLIDE_IN_BOTTOM -> {
             AnimatedVisibility(
                 visible = isVisible,
-                enter = slideInVertically(animationSpec = animSpec, initialOffsetY = { it }),
-                exit = slideOutVertically(targetOffsetY = { it }),
+                enter = slideInVertically(animationSpec = AnimationParser.buildOffsetAnimationSpec(spec), initialOffsetY = { it }),
+                exit = slideOutVertically(animationSpec = AnimationParser.buildOffsetAnimationSpec(spec), targetOffsetY = { it }),
                 modifier = modifier
             ) { content() }
         }
@@ -120,7 +120,7 @@ fun AnimatedWrapper(
         FoundryAnimationType.EXPAND_VERTICAL -> {
             AnimatedVisibility(
                 visible = isVisible,
-                enter = expandVertically(animationSpec = animSpec),
+                enter = expandVertically(animationSpec = AnimationParser.buildSizeAnimationSpec(spec)),
                 exit = shrinkVertically(),
                 modifier = modifier
             ) { content() }

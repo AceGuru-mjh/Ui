@@ -4,6 +4,8 @@ import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 
 /**
  * 从 attributes map 中解析动画配置。
@@ -45,6 +47,48 @@ object AnimationParser {
                 dampingRatio = spec.springDampingRatio ?: Spring.DampingRatioNoBouncy,
                 stiffness = spec.springStiffness ?: Spring.StiffnessMedium,
                 visibilityThreshold = 0.01f
+            )
+        } else {
+            tween(
+                durationMillis = spec.durationMs,
+                delayMillis = spec.delayMs
+            )
+        }
+    }
+
+    /**
+     * 构建 IntOffset 类型的动画规格。
+     * 用于 slideInHorizontally/slideOutHorizontally/slideInVertically/slideOutVertically。
+     * 推理：这些函数的 animationSpec 参数类型是 FiniteAnimationSpec<IntOffset>，
+     * 因为偏移量以整数像素为单位。
+     */
+    fun buildOffsetAnimationSpec(spec: FoundryAnimationSpec): FiniteAnimationSpec<IntOffset> {
+        return if (spec.springDampingRatio != null || spec.springStiffness != null) {
+            spring(
+                dampingRatio = spec.springDampingRatio ?: Spring.DampingRatioNoBouncy,
+                stiffness = spec.springStiffness ?: Spring.StiffnessMedium,
+                visibilityThreshold = IntOffset(1, 1)
+            )
+        } else {
+            tween(
+                durationMillis = spec.durationMs,
+                delayMillis = spec.delayMs
+            )
+        }
+    }
+
+    /**
+     * 构建 IntSize 类型的动画规格。
+     * 用于 expandVertically/shrinkVertically。
+     * 推理：这些函数的 animationSpec 参数类型是 FiniteAnimationSpec<IntSize>，
+     * 因为尺寸以整数像素为单位。
+     */
+    fun buildSizeAnimationSpec(spec: FoundryAnimationSpec): FiniteAnimationSpec<IntSize> {
+        return if (spec.springDampingRatio != null || spec.springStiffness != null) {
+            spring(
+                dampingRatio = spec.springDampingRatio ?: Spring.DampingRatioNoBouncy,
+                stiffness = spec.springStiffness ?: Spring.StiffnessMedium,
+                visibilityThreshold = IntSize(1, 1)
             )
         } else {
             tween(
