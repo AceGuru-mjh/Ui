@@ -635,4 +635,14 @@ class FoundryViewModel : ViewModel() {
             performSave()
         }
     }
+
+    fun loadTemplate(templateDsl: String) {
+        undoStack.add(_code.value)
+        if (undoStack.size > 50) undoStack.removeAt(0)
+        redoStack.clear()
+        _code.value = templateDsl
+        render()
+        _statusMessage.value = "Template loaded"
+        scheduleAutoSave()
+    }
 }
