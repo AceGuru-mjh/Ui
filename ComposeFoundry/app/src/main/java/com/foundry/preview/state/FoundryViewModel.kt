@@ -323,6 +323,59 @@ class FoundryViewModel : ViewModel() {
         }
     }
 
+    data class DocumentTab(
+        val id: Int,
+        val name: String,
+        val code: String
+    )
+
+    private val _openDocuments = MutableStateFlow(listOf(DocumentTab(0, "Document 1", "")))
+    val openDocuments: StateFlow<List<DocumentTab>> = _openDocuments.asStateFlow()
+
+    private val _activeDocIndex = MutableStateFlow(0)
+    val activeDocIndex: StateFlow<Int> = _activeDocIndex.asStateFlow()
+
+    private var nextDocId = 1
+
+    fun addDocument() {
+        val docs = _openDocuments.value.toMutableList()
+        docs[_activeDocIndex.value] = docs[_activeDocIndex.value].copy(code = _code.value)
+        val newDoc = DocumentTab(nextDocId, "Document ${nextDocId + 1}", "")
+        nextDocId++
+        _openDocuments.value = docs + newDoc
+        _activeDocIndex.value = _openDocuments.value.size - 1
+        _code.value = ""
+        _document.value = null
+        _diagnostics.value = DiagnosticsEngine()
+        _selectedElementPath.value = null
+    }
+
+    fun switchDocument(index: Int) {
+        if (index == _activeDocIndex.value || index >= _openDocuments.value.size) return
+        val docs = _openDocuments.value.toMutableList()
+        docs[_activeDocIndex.value] = docs[_activeDocIndex.value].copy(code = _code.value)
+        _openDocuments.value = docs
+        _activeDocIndex.value = index
+        _code.value = docs[index].code
+        _selectedElementPath.value = null
+        render()
+    }
+
+    fun closeDocument(index: Int) {
+        if (_openDocuments.value.size <= 1) return
+        val docs = _openDocuments.value.toMutableList()
+        docs.removeAt(index)
+        _openDocuments.value = docs
+        if (_activeDocIndex.value >= docs.size) {
+            _activeDocIndex.value = docs.size - 1
+        } else if (_activeDocIndex.value > index) {
+            _activeDocIndex.value = _activeDocIndex.value - 1
+        }
+        _code.value = docs[_activeDocIndex.value].code
+        _selectedElementPath.value = null
+        render()
+    }
+
     fun updateElementModifier(path: String, modifierField: String, value: String) {
         try {
             val jsonElement = prettyJson.parseToJsonElement(_code.value)

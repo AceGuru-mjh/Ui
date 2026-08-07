@@ -39,6 +39,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Tab
 import com.foundry.preview.dsl.PaddingSpec
 import com.foundry.preview.dsl.UiElement
 import com.foundry.preview.dsl.UiModifierSpec
@@ -66,6 +74,12 @@ fun RenderElement(
         "textfield" -> RenderTextField(element, modifier)
         "scroll" -> RenderScroll(element, modifier, diagnostics, path)
         "surface" -> RenderSurface(element, modifier, diagnostics, path)
+        "lazycolumn" -> RenderLazyColumn(element, modifier, diagnostics, path)
+        "switch" -> RenderSwitch(element, modifier)
+        "checkbox" -> RenderCheckbox(element, modifier)
+        "slider" -> RenderSliderComponent(element, modifier)
+        "progressindicator" -> RenderProgressIndicator(element, modifier)
+        "tabrow" -> RenderTabRow(element, modifier, diagnostics, path)
         else -> {
             diagnostics.addWarning("Unknown element type: '${element.type}'", path)
             Box(
@@ -355,6 +369,105 @@ private fun RenderSurface(
     ) {
         element.children.forEachIndexed { index, child ->
             RenderElement(child, diagnostics, "$path.children[$index]")
+        }
+    }
+}
+
+@Composable
+private fun RenderLazyColumn(
+    element: UiElement,
+    modifier: Modifier,
+    diagnostics: DiagnosticsEngine,
+    path: String
+) {
+    LazyColumn(modifier = modifier) {
+        items(element.children.size) { index ->
+            RenderElement(element.children[index], diagnostics, "$path.children[$index]")
+        }
+    }
+}
+
+@Composable
+private fun RenderSwitch(element: UiElement, modifier: Modifier) {
+    val label = element.attributes["label"] ?: ""
+    var checked by remember { mutableStateOf(element.attributes["checked"]?.toBoolean() ?: false) }
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (label.isNotEmpty()) {
+            Text(text = label, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        }
+        Switch(checked = checked, onCheckedChange = { checked = it })
+    }
+}
+
+@Composable
+private fun RenderCheckbox(element: UiElement, modifier: Modifier) {
+    val label = element.attributes["label"] ?: ""
+    var checked by remember { mutableStateOf(element.attributes["checked"]?.toBoolean() ?: false) }
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(checked = checked, onCheckedChange = { checked = it })
+        if (label.isNotEmpty()) {
+            Text(text = label, fontSize = 14.sp)
+        }
+    }
+}
+
+@Composable
+private fun RenderSliderComponent(element: UiElement, modifier: Modifier) {
+    val min = element.attributes["min"]?.toFloatOrNull() ?: 0f
+    val max = element.attributes["max"]?.toFloatOrNull() ?: 100f
+    var value by remember { mutableStateOf(element.attributes["value"]?.toFloatOrNull() ?: min) }
+    Column(modifier = modifier) {
+        Slider(
+            value = value,
+            onValueChange = { value = it },
+            valueRange = min..max
+        )
+        Text(text = "${value.toInt()}", fontSize = 10.sp, color = Color.Gray)
+    }
+}
+
+@Composable
+private fun RenderProgressIndicator(element: UiElement, modifier: Modifier) {
+    val progress = element.attributes["progress"]?.toFloatOrNull()
+    if (progress != null) {
+        LinearProgressIndicator(
+            progress = { progress.coerceIn(0f, 1f) },
+            modifier = modifier
+        )
+    } else {
+        LinearProgressIndicator(modifier = modifier)
+    }
+}
+
+@Composable
+private fun RenderTabRow(
+    element: UiElement,
+    modifier: Modifier,
+    diagnostics: DiagnosticsEngine,
+    path: String
+) {
+    var selectedTabIndex by remember { mutableStateOf(0) }
+    val tabs = element.children
+    if (tabs.isEmpty()) return
+
+    TabRow(
+        selectedTabIndex = selectedTabIndex.coerceIn(0, tabs.size - 1),
+        modifier = modifier
+    ) {
+        tabs.forEachIndexed { index, tab ->
+            Tab(
+                selected = selectedTabIndex == index,
+                onClick = { selectedTabIndex = index },
+                text = {
+                    Text(tab.attributes["text"] ?: "Tab ${index + 1}")
+                }
+            )
+        }
+    }
+
+    if (selectedTabIndex < tabs.size && tabs[selectedTabIndex].children.isNotEmpty()) {
+        tabs[selectedTabIndex].children.forEachIndexed { index, child ->
+            RenderElement(child, diagnostics, "$path.children[$selectedTabIndex].children[$index]")
         }
     }
 }
