@@ -1,23 +1,22 @@
 package com.foundry.preview.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -34,317 +33,282 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.foundry.preview.dsl.UiElement
 import com.foundry.preview.state.FoundryViewModel
 
-data class InspectItem(
+data class InspectNode(
     val path: String,
     val depth: Int,
     val element: UiElement
 )
 
-private fun flattenTree(
-    element: UiElement,
-    path: String = "root",
-    depth: Int = 0
-): List<InspectItem> {
-    val items = mutableListOf(InspectItem(path, depth, element))
+fun flattenTree(element: UiElement, path: String = "root", depth: Int = 0): List<InspectNode> {
+    val nodes = mutableListOf(InspectNode(path, depth, element))
     element.children.forEachIndexed { index, child ->
-        items.addAll(flattenTree(child, "$path.children[$index]", depth + 1))
+        nodes.addAll(flattenTree(child, "$path.children[$index]", depth + 1))
     }
-    return items
+    return nodes
 }
 
-private fun matchesQuery(item: InspectItem, query: String): Boolean {
-    if (query.isBlank()) return true
-    val q = query.trim().lowercase()
-    if (item.element.type.lowercase().contains(q)) return true
-    return item.element.attributes.any { (k, v) ->
-        k.lowercase().contains(q) || v.lowercase().contains(q)
+fun findElementByPath(element: UiElement, path: String): UiElement? {
+    if (path == "root") return element
+    val parts = path.removePrefix("root.").split(".")
+    var current = element
+    for (part in parts) {
+        if (part.startsWith("children[")) {
+            val index = part.removePrefix("children[").removeSuffix("]").toIntOrNull() ?: return null
+            if (index < current.children.size) {
+                current = current.children[index]
+            } else {
+                return null
+            }
+        }
     }
+    return current
 }
 
 @Composable
 fun InspectScreen(viewModel: FoundryViewModel) {
     val document by viewModel.document.collectAsState()
     val selectedPath by viewModel.selectedElementPath.collectAsState()
-
     var searchQuery by remember { mutableStateOf("") }
 
     if (document == null) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp)
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "No document rendered",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "Go to Editor tab, enter DSL, and click Render first.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = "No document rendered.\nGo to Editor tab and click Render.",
+                color = Color.Gray,
+                fontSize = 14.sp
             )
         }
         return
     }
 
-    val allItems = remember(document) { flattenTree(document!!.root) }
-    val filteredItems = allItems.filter { matchesQuery(it, searchQuery) }
-    val selectedItem = selectedPath?.let { path ->
-        allItems.firstOrNull { it.path == path }
+    val allNodes = flattenTree(document!!.root)
+    val filteredNodes = if (searchQuery.isBlank()) {
+        allNodes
+    } else {
+        allNodes.filter { node ->
+            node.element.type.contains(searchQuery, ignoreCase = true) ||
+            node.element.attributes.values.any { it.contains(searchQuery, ignoreCase = true) } ||
+            node.path.contains(searchQuery, ignoreCase = true)
+        }
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(12.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(12.dp)
     ) {
         Text(
             text = "Component Tree",
             style = MaterialTheme.typography.titleMedium
         )
-        Text(
-            text = "${filteredItems.size} / ${allItems.size} elements" +
-                if (searchQuery.isNotBlank()) " (filtered)" else "",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
 
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 8.dp),
-            placeholder = { Text("Search by type or attribute…") },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Filled.Close, contentDescription = "Clear")
-                    }
-                }
-            },
-            singleLine = true
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            label = { Text("Search by type or attribute") },
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodySmall
         )
 
+        Text(
+            text = "${filteredNodes.size} / ${allNodes.size} elements",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
         LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
+            modifier = Modifier.weight(1f)
         ) {
-            items(filteredItems) { item ->
-                InspectRow(
-                    item = item,
-                    isSelected = item.path == selectedPath,
-                    onClick = {
-                        viewModel.selectElement(
-                            if (selectedPath == item.path) null else item.path
-                        )
-                    }
+            items(filteredNodes) { node ->
+                InspectNodeRow(
+                    node = node,
+                    isSelected = node.path == selectedPath,
+                    onClick = { viewModel.selectElement(node.path) }
                 )
             }
         }
 
-        selectedItem?.let { item ->
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            EditPanel(
-                item = item,
-                onUpdateAttribute = { key, value ->
-                    viewModel.updateElementAttribute(item.path, key, value)
-                },
-                onDelete = {
-                    if (item.path != "root") {
-                        viewModel.deleteElement(item.path)
-                    }
-                }
-            )
+        selectedPath?.let { path ->
+            val element = findElementByPath(document!!.root, path)
+            if (element != null) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                ElementEditPanel(
+                    path = path,
+                    element = element,
+                    viewModel = viewModel
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun InspectRow(
-    item: InspectItem,
+private fun InspectNodeRow(
+    node: InspectNode,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val containerColor = if (isSelected) {
+    val bgColor = if (isSelected) {
         MaterialTheme.colorScheme.primaryContainer
     } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        Color.Transparent
     }
 
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp)
-            .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor)
+            .background(bgColor, RoundedCornerShape(4.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        Spacer(modifier = Modifier.width((node.depth * 16).dp))
+
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp)
         ) {
-            Spacer(modifier = Modifier.width((item.depth * 16).dp))
-
             Text(
-                text = item.element.type,
-                style = MaterialTheme.typography.labelLarge,
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                else MaterialTheme.colorScheme.primary
+                text = node.element.type,
+                color = MaterialTheme.colorScheme.onPrimary,
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace
             )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            val summary = buildSummary(item.element)
-            if (summary.isNotEmpty()) {
-                Text(
-                    text = summary,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-            }
         }
 
-        if (item.element.attributes.isNotEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = (item.depth * 16 + 16).dp, end = 8.dp, bottom = 6.dp)
-            ) {
-                item.element.attributes.forEach { (key, value) ->
-                    Text(
-                        text = "$key = \"$value\"",
-                        fontSize = 9.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+        Spacer(modifier = Modifier.width(8.dp))
+
+        val summary = buildSummary(node.element)
+        if (summary.isNotEmpty()) {
+            Text(
+                text = summary,
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
         }
     }
 }
 
 @Composable
-private fun EditPanel(
-    item: InspectItem,
-    onUpdateAttribute: (String, String) -> Unit,
-    onDelete: () -> Unit
+private fun ElementEditPanel(
+    path: String,
+    element: UiElement,
+    viewModel: FoundryViewModel
 ) {
+    var textValue by remember(element) { mutableStateOf(element.attributes["text"] ?: "") }
+    var fontSizeValue by remember(element) { mutableStateOf(element.attributes["fontSize"] ?: "") }
+    var colorValue by remember(element) { mutableStateOf(element.attributes["color"] ?: "") }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-        ) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Edit: ${item.element.type}",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary
+                    text = "Edit: ${element.type}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = item.path,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.padding(4.dp))
-
-            if (item.element.attributes.isEmpty()) {
-                Text(
-                    text = "No attributes on this element.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                item.element.attributes.forEach { (key, current) ->
-                    AttributeEditor(
-                        key = key,
-                        value = current,
-                        onValueChange = { newValue -> onUpdateAttribute(key, newValue) }
-                    )
-                    Spacer(modifier = Modifier.padding(2.dp))
+                if (path != "root") {
+                    IconButton(onClick = { viewModel.deleteElement(path) }) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "Delete element",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
 
-            if (item.path != "root") {
-                Spacer(modifier = Modifier.padding(4.dp))
-                Button(
-                    onClick = onDelete,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                ) {
-                    Icon(Icons.Filled.Delete, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Delete Element")
-                }
-            } else {
-                Text(
-                    text = "Root element cannot be deleted.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            Text(
+                text = "Path: $path",
+                fontSize = 9.sp,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = textValue,
+                onValueChange = { textValue = it },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                label = { Text("text") },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall
+            )
+
+            Row(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = fontSizeValue,
+                    onValueChange = { fontSizeValue = it },
+                    modifier = Modifier.weight(1f).padding(end = 4.dp),
+                    label = { Text("fontSize") },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodySmall
                 )
+                OutlinedTextField(
+                    value = colorValue,
+                    onValueChange = { colorValue = it },
+                    modifier = Modifier.weight(1f).padding(start = 4.dp),
+                    label = { Text("color (#)") },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = {
+                    if (textValue.isNotEmpty()) {
+                        viewModel.updateElementAttribute(path, "text", textValue)
+                    }
+                    if (fontSizeValue.isNotEmpty()) {
+                        viewModel.updateElementAttribute(path, "fontSize", fontSizeValue)
+                    }
+                    if (colorValue.isNotEmpty()) {
+                        viewModel.updateElementAttribute(path, "color", colorValue)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Apply Changes")
             }
         }
     }
-}
-
-@Composable
-private fun AttributeEditor(
-    key: String,
-    value: String,
-    onValueChange: (String) -> Unit
-) {
-    var fieldValue by remember(value) { mutableStateOf(value) }
-
-    OutlinedTextField(
-        value = fieldValue,
-        onValueChange = { fieldValue = it },
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 56.dp),
-        label = { Text(key) },
-        singleLine = true,
-        trailingIcon = {
-            if (fieldValue != value) {
-                IconButton(onClick = { onValueChange(fieldValue) }) {
-                    Icon(Icons.Filled.Search, contentDescription = "Apply")
-                }
-            }
-        }
-    )
 }
 
 private fun buildSummary(element: UiElement): String {
     val parts = mutableListOf<String>()
     element.attributes["text"]?.let { parts.add("text=\"$it\"") }
-    element.modifier.fillMaxWidth.let { if (it) parts.add("fillMaxW") }
+    if (element.modifier.fillMaxWidth) parts.add("fillMaxW")
     element.modifier.width?.let { parts.add("w=${it}dp") }
     element.modifier.height?.let { parts.add("h=${it}dp") }
-    element.modifier.background?.let { parts.add("bg=$it") }
+    element.modifier.background?.let { parts.add("bg") }
     if (element.children.isNotEmpty()) parts.add("${element.children.size} children")
     return parts.joinToString(" ")
 }
