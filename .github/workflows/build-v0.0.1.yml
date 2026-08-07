@@ -17,6 +17,10 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+# 显式授予 Release 写权限（默认 GITHUB_TOKEN 仅有 contents:read）
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Android APK
