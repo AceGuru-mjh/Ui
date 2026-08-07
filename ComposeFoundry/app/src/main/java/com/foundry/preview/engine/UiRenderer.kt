@@ -51,6 +51,8 @@ import com.foundry.preview.dsl.PaddingSpec
 import com.foundry.preview.dsl.UiElement
 import com.foundry.preview.dsl.UiModifierSpec
 import com.foundry.preview.dsl.parseColor
+import com.foundry.gradient.GradientParser
+import com.foundry.gradient.GradientBrushBuilder
 
 @Composable
 fun RenderElement(
@@ -122,14 +124,26 @@ fun buildModifier(spec: UiModifierSpec): Modifier {
     }
 
     spec.background?.let { bg ->
-        val color = parseColor(bg)
         val radius = spec.cornerRadius ?: 0f
-        if (radius > 0f) {
-            modifier = modifier
-                .clip(RoundedCornerShape(radius.dp))
-                .background(color, RoundedCornerShape(radius.dp))
+        if (GradientParser.isGradient(bg)) {
+            val gradientConfig = GradientParser.parse(bg)
+            val brush = GradientBrushBuilder.buildBrush(gradientConfig)
+            if (radius > 0f) {
+                modifier = modifier
+                    .clip(RoundedCornerShape(radius.dp))
+                    .background(brush, RoundedCornerShape(radius.dp))
+            } else {
+                modifier = modifier.background(brush)
+            }
         } else {
-            modifier = modifier.background(color)
+            val color = parseColor(bg)
+            if (radius > 0f) {
+                modifier = modifier
+                    .clip(RoundedCornerShape(radius.dp))
+                    .background(color, RoundedCornerShape(radius.dp))
+            } else {
+                modifier = modifier.background(color)
+            }
         }
     }
 
