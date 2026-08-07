@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import com.foundry.preview.dsl.ThemeConfig
+import com.foundry.preview.dsl.UiElement
 import com.foundry.preview.dsl.UiDocument
 import com.foundry.preview.dsl.UiParser
 import com.foundry.preview.dsl.UiValidator

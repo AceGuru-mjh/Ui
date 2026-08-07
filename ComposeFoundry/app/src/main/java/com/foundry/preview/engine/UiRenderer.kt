@@ -102,8 +102,6 @@ private fun RenderElementContent(
         "slider" -> RenderSliderComponent(element, modifier)
         "progressindicator" -> RenderProgressIndicator(element, modifier)
         "tabrow" -> RenderTabRow(element, modifier, diagnostics, path)
-        "flowrow" -> RenderFlowRow(element, modifier, diagnostics, path)
-        "flowcolumn" -> RenderFlowColumn(element, modifier, diagnostics, path)
         else -> {
             diagnostics.addWarning("Unknown element type: '${element.type}'", path)
             Box(
