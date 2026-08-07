@@ -8,11 +8,12 @@ import com.foundry.preview.state.FoundryViewModel
 import com.foundry.preview.ui.MainScreen
 
 class MainActivity : ComponentActivity() {
-
     private val viewModel: FoundryViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        viewModel.initializeDataStore(applicationContext)
 
         val sampleDsl = try {
             assets.open("sample_preview.androidui.json")
@@ -23,9 +24,13 @@ class MainActivity : ComponentActivity() {
         if (sampleDsl != null) {
             viewModel.initializeWithSample(sampleDsl)
         }
-
         setContent {
             MainScreen(viewModel = viewModel)
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        viewModel.saveNow()
     }
 }

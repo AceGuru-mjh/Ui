@@ -129,6 +129,7 @@ class FoundryViewModel : ViewModel() {
         if (undoStack.size > 50) undoStack.removeAt(0)
         redoStack.clear()
         _code.value = newCode
+        scheduleAutoSave()
     }
 
     fun render() {
@@ -172,6 +173,7 @@ class FoundryViewModel : ViewModel() {
 
     fun toggleTheme() {
         _isDarkTheme.value = !_isDarkTheme.value
+        scheduleAutoSave()
     }
 
     fun selectTab(index: Int) {
@@ -180,6 +182,7 @@ class FoundryViewModel : ViewModel() {
 
     fun setDevicePreset(preset: String) {
         _devicePreset.value = preset
+        scheduleAutoSave()
     }
 
     fun getDeviceDimensions(): Pair<Int, Int> {
@@ -411,6 +414,7 @@ class FoundryViewModel : ViewModel() {
         _document.value = null
         _diagnostics.value = DiagnosticsEngine()
         _selectedElementPath.value = null
+        scheduleAutoSave()
     }
 
     fun switchDocument(index: Int) {
@@ -422,6 +426,7 @@ class FoundryViewModel : ViewModel() {
         _code.value = docs[index].code
         _selectedElementPath.value = null
         render()
+        scheduleAutoSave()
     }
 
     fun closeDocument(index: Int) {
@@ -437,6 +442,7 @@ class FoundryViewModel : ViewModel() {
         _code.value = docs[_activeDocIndex.value].code
         _selectedElementPath.value = null
         render()
+        scheduleAutoSave()
     }
 
     fun updateElementModifier(path: String, modifierField: String, value: String) {
