@@ -24,6 +24,21 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "foundry_settings")
 
 class FoundryViewModel : ViewModel() {
 
@@ -68,6 +83,41 @@ class FoundryViewModel : ViewModel() {
         coerceInputValues = true
     }
 
+    fun initializeDataStore(context: Context) {
+        dataStore = context.dataStore
+        saveScope.launch {
+            try {
+                val prefs = dataStore!!.data.first()
+                val savedDocs = prefs[KEY_DOCUMENTS]
+                val savedActiveIndex = prefs[KEY_ACTIVE_INDEX] ?: 0
+                val savedIsDark = prefs[KEY_IS_DARK] ?: false
+                val savedDevicePreset = prefs[KEY_DEVICE_PRESET] ?: "Pixel 7"
+                val savedNextDocId = prefs[KEY_NEXT_DOC_ID] ?: 1
+
+                _isDarkTheme.value = savedIsDark
+                _devicePreset.value = savedDevicePreset
+                nextDocId = savedNextDocId
+
+                if (savedDocs != null && savedDocs.isNotEmpty()) {
+                    try {
+                        val docList = kotlinx.serialization.json.Json.decodeFromString<List<DocumentTab>>(savedDocs)
+                        if (docList.isNotEmpty()) {
+                            _openDocuments.value = docList
+                            val validIndex = savedActiveIndex.coerceIn(0, docList.size - 1)
+                            _activeDocIndex.value = validIndex
+                            _code.value = docList[validIndex].code
+                            render()
+                        }
+                    } catch (e: Exception) {
+                        // 解析失败则使用默认
+                    }
+                }
+            } catch (e: Exception) {
+                // DataStore 读取失败，使用默认值
+            }
+        }
+    }
+
     fun initializeWithSample(dsl: String) {
         if (_code.value.isEmpty()) {
             _code.value = dsl
@@ -79,6 +129,7 @@ class FoundryViewModel : ViewModel() {
         if (undoStack.size > 50) undoStack.removeAt(0)
         redoStack.clear()
         _code.value = newCode
+        scheduleAutoSave()
     }
 
     fun render() {
@@ -122,6 +173,7 @@ class FoundryViewModel : ViewModel() {
 
     fun toggleTheme() {
         _isDarkTheme.value = !_isDarkTheme.value
+        scheduleAutoSave()
     }
 
     fun selectTab(index: Int) {
@@ -130,6 +182,7 @@ class FoundryViewModel : ViewModel() {
 
     fun setDevicePreset(preset: String) {
         _devicePreset.value = preset
+        scheduleAutoSave()
     }
 
     fun getDeviceDimensions(): Pair<Int, Int> {
@@ -323,6 +376,7 @@ class FoundryViewModel : ViewModel() {
         }
     }
 
+    @kotlinx.serialization.Serializable
     data class DocumentTab(
         val id: Int,
         val name: String,
@@ -337,6 +391,18 @@ class FoundryViewModel : ViewModel() {
 
     private var nextDocId = 1
 
+    private var dataStore: DataStore<Preferences>? = null
+    private var saveJob: Job? = null
+    private val saveScope = CoroutineScope(Dispatchers.IO)
+
+    companion object {
+        private val KEY_DOCUMENTS = stringPreferencesKey("open_documents")
+        private val KEY_ACTIVE_INDEX = intPreferencesKey("active_doc_index")
+        private val KEY_IS_DARK = booleanPreferencesKey("is_dark_theme")
+        private val KEY_DEVICE_PRESET = stringPreferencesKey("device_preset")
+        private val KEY_NEXT_DOC_ID = intPreferencesKey("next_doc_id")
+    }
+
     fun addDocument() {
         val docs = _openDocuments.value.toMutableList()
         docs[_activeDocIndex.value] = docs[_activeDocIndex.value].copy(code = _code.value)
@@ -348,6 +414,7 @@ class FoundryViewModel : ViewModel() {
         _document.value = null
         _diagnostics.value = DiagnosticsEngine()
         _selectedElementPath.value = null
+        scheduleAutoSave()
     }
 
     fun switchDocument(index: Int) {
@@ -359,6 +426,7 @@ class FoundryViewModel : ViewModel() {
         _code.value = docs[index].code
         _selectedElementPath.value = null
         render()
+        scheduleAutoSave()
     }
 
     fun closeDocument(index: Int) {
@@ -374,6 +442,7 @@ class FoundryViewModel : ViewModel() {
         _code.value = docs[_activeDocIndex.value].code
         _selectedElementPath.value = null
         render()
+        scheduleAutoSave()
     }
 
     fun updateElementModifier(path: String, modifierField: String, value: String) {
@@ -534,5 +603,46 @@ class FoundryViewModel : ViewModel() {
 
     fun clearStatus() {
         _statusMessage.value = ""
+    }
+
+    private fun scheduleAutoSave() {
+        saveJob?.cancel()
+        saveJob = saveScope.launch {
+            delay(2000)
+            performSave()
+        }
+    }
+
+    private suspend fun performSave() {
+        val store = dataStore ?: return
+        try {
+            val docsJson = kotlinx.serialization.json.Json.encodeToString(_openDocuments.value)
+            store.edit { prefs ->
+                prefs[KEY_DOCUMENTS] = docsJson
+                prefs[KEY_ACTIVE_INDEX] = _activeDocIndex.value
+                prefs[KEY_IS_DARK] = _isDarkTheme.value
+                prefs[KEY_DEVICE_PRESET] = _devicePreset.value
+                prefs[KEY_NEXT_DOC_ID] = nextDocId
+            }
+        } catch (e: Exception) {
+            // 保存失败静默处理
+        }
+    }
+
+    fun saveNow() {
+        saveJob?.cancel()
+        saveScope.launch {
+            performSave()
+        }
+    }
+
+    fun loadTemplate(templateDsl: String) {
+        undoStack.add(_code.value)
+        if (undoStack.size > 50) undoStack.removeAt(0)
+        redoStack.clear()
+        _code.value = templateDsl
+        render()
+        _statusMessage.value = "Template loaded"
+        scheduleAutoSave()
     }
 }
