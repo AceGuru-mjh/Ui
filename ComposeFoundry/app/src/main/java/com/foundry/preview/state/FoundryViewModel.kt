@@ -318,12 +318,10 @@ class FoundryViewModel : ViewModel() {
                 }
             }
             if (!hasAttributes) {
-                put("attributes", buildJsonObject { put(key, attributeValue(value)) })
+                put("attributes", buildJsonObject { put(key, value) })
             }
         }
     }
-
-    private fun attributeValue(value: String): JsonPrimitive = JsonPrimitive(value)
 
     fun importJsonFromUri(context: Context, uri: Uri) {
         try {

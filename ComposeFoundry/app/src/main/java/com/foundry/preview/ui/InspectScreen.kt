@@ -97,8 +97,7 @@ fun InspectScreen(viewModel: FoundryViewModel) {
     } else {
         allNodes.filter { node ->
             node.element.type.contains(searchQuery, ignoreCase = true) ||
-            node.element.attributes.values.any { it.contains(searchQuery, ignoreCase = true) } ||
-            node.path.contains(searchQuery, ignoreCase = true)
+            node.element.attributes.values.any { it.contains(searchQuery, ignoreCase = true) }
         }
     }
 
