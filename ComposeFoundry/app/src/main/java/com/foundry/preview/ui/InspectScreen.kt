@@ -24,6 +24,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -297,6 +299,9 @@ private fun ElementEditPanel(
             ) {
                 Text("Apply Changes")
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            ModifierEditSection(path = path, element = element, viewModel = viewModel)
         }
     }
 }
@@ -310,4 +315,120 @@ private fun buildSummary(element: UiElement): String {
     element.modifier.background?.let { parts.add("bg") }
     if (element.children.isNotEmpty()) parts.add("${element.children.size} children")
     return parts.joinToString(" ")
+}
+
+@Composable
+private fun ModifierEditSection(
+    path: String,
+    element: UiElement,
+    viewModel: FoundryViewModel
+) {
+    val modifier = element.modifier
+
+    var paddingAll by remember(element) { mutableStateOf(modifier.padding?.all ?: 0f) }
+    var widthVal by remember(element) { mutableStateOf(modifier.width ?: 0f) }
+    var heightVal by remember(element) { mutableStateOf(modifier.height ?: 0f) }
+    var cornerRadius by remember(element) { mutableStateOf(modifier.cornerRadius ?: 0f) }
+    var background by remember(element) { mutableStateOf(modifier.background ?: "") }
+    var fillMaxW by remember(element) { mutableStateOf(modifier.fillMaxWidth) }
+    var fillMaxH by remember(element) { mutableStateOf(modifier.fillMaxHeight) }
+
+    Text(
+        text = "Modifier",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 4.dp)
+    )
+
+    Text("Padding: ${paddingAll.toInt()}dp", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+    Slider(
+        value = paddingAll,
+        onValueChange = { paddingAll = it },
+        onValueChangeFinished = {
+            viewModel.updateElementModifier(path, "padding.all", paddingAll.toInt().toString())
+        },
+        valueRange = 0f..100f,
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    Text("Width: ${widthVal.toInt()}dp", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+    Slider(
+        value = widthVal,
+        onValueChange = { widthVal = it },
+        onValueChangeFinished = {
+            viewModel.updateElementModifier(path, "width", widthVal.toInt().toString())
+        },
+        valueRange = 0f..500f,
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    Text("Height: ${heightVal.toInt()}dp", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+    Slider(
+        value = heightVal,
+        onValueChange = { heightVal = it },
+        onValueChangeFinished = {
+            viewModel.updateElementModifier(path, "height", heightVal.toInt().toString())
+        },
+        valueRange = 0f..500f,
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    Text("Corner Radius: ${cornerRadius.toInt()}dp", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+    Slider(
+        value = cornerRadius,
+        onValueChange = { cornerRadius = it },
+        onValueChangeFinished = {
+            viewModel.updateElementModifier(path, "cornerRadius", cornerRadius.toInt().toString())
+        },
+        valueRange = 0f..50f,
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("fillMaxWidth", fontSize = 10.sp, modifier = Modifier.weight(1f))
+        Switch(
+            checked = fillMaxW,
+            onCheckedChange = { checked ->
+                fillMaxW = checked
+                viewModel.updateElementModifier(path, "fillMaxWidth", checked.toString())
+            }
+        )
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("fillMaxHeight", fontSize = 10.sp, modifier = Modifier.weight(1f))
+        Switch(
+            checked = fillMaxH,
+            onCheckedChange = { checked ->
+                fillMaxH = checked
+                viewModel.updateElementModifier(path, "fillMaxHeight", checked.toString())
+            }
+        )
+    }
+
+    OutlinedTextField(
+        value = background,
+        onValueChange = { background = it },
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        label = { Text("background (#AARRGGBB)") },
+        singleLine = true,
+        textStyle = MaterialTheme.typography.bodySmall
+    )
+
+    Button(
+        onClick = {
+            if (background.isNotEmpty()) {
+                viewModel.updateElementModifier(path, "background", background)
+            }
+        },
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+    ) {
+        Text("Apply Background")
+    }
 }

@@ -323,6 +323,96 @@ class FoundryViewModel : ViewModel() {
         }
     }
 
+    fun updateElementModifier(path: String, modifierField: String, value: String) {
+        try {
+            val jsonElement = prettyJson.parseToJsonElement(_code.value)
+            val pathParts = parsePath(path)
+            val updatedJson = navigateAndUpdateModifier(jsonElement, pathParts, modifierField, value)
+            val updatedCode = prettyJson.encodeToString(updatedJson)
+
+            undoStack.add(_code.value)
+            if (undoStack.size > 50) undoStack.removeAt(0)
+            redoStack.clear()
+            _code.value = updatedCode
+            render()
+            _statusMessage.value = "Modifier '$modifierField' updated"
+        } catch (e: Exception) {
+            _statusMessage.value = "Modifier update failed: ${e.message}"
+        }
+    }
+
+    private fun navigateAndUpdateModifier(
+        json: JsonElement,
+        pathParts: List<String>,
+        field: String,
+        value: String
+    ): JsonElement {
+        if (pathParts.isEmpty()) {
+            return updateModifierInObject(json.jsonObject, field, value)
+        }
+        val part = pathParts[0]
+        val remaining = pathParts.drop(1)
+        if (part.startsWith("children[")) {
+            val index = part.removePrefix("children[").removeSuffix("]").toInt()
+            val obj = json.jsonObject
+            val children = obj["children"]?.jsonArray ?: return json
+            if (index >= children.size) return json
+            val updatedChild = navigateAndUpdateModifier(children[index], remaining, field, value)
+            val updatedChildren = children.toMutableList()
+            updatedChildren[index] = updatedChild
+            return buildJsonObject {
+                obj.forEach { (k, v) ->
+                    if (k == "children") put("children", JsonArray(updatedChildren))
+                    else put(k, v)
+                }
+            }
+        }
+        return json
+    }
+
+    private fun updateModifierInObject(obj: JsonObject, field: String, value: String): JsonObject {
+        return buildJsonObject {
+            var hasModifier = false
+            obj.forEach { (k, v) ->
+                if (k == "modifier") {
+                    hasModifier = true
+                    val modifier = v.jsonObject.toMutableMap()
+                    when {
+                        field == "padding.all" -> {
+                            val padding = modifier["padding"]?.jsonObject?.toMutableMap() ?: mutableMapOf()
+                            padding["all"] = JsonPrimitive(value.toFloat())
+                            modifier["padding"] = JsonObject(padding)
+                        }
+                        field == "width" -> modifier["width"] = JsonPrimitive(value.toFloat())
+                        field == "height" -> modifier["height"] = JsonPrimitive(value.toFloat())
+                        field == "cornerRadius" -> modifier["cornerRadius"] = JsonPrimitive(value.toFloat())
+                        field == "background" -> modifier["background"] = JsonPrimitive(value)
+                        field == "fillMaxWidth" -> modifier["fillMaxWidth"] = JsonPrimitive(value.toBoolean())
+                        field == "fillMaxHeight" -> modifier["fillMaxHeight"] = JsonPrimitive(value.toBoolean())
+                        field == "elevation" -> modifier["elevation"] = JsonPrimitive(value.toFloat())
+                    }
+                    put("modifier", JsonObject(modifier))
+                } else {
+                    put(k, v)
+                }
+            }
+            if (!hasModifier) {
+                put("modifier", buildJsonObject {
+                    when {
+                        field == "padding.all" -> put("padding", buildJsonObject { put("all", value.toFloat()) })
+                        field == "width" -> put("width", value.toFloat())
+                        field == "height" -> put("height", value.toFloat())
+                        field == "cornerRadius" -> put("cornerRadius", value.toFloat())
+                        field == "background" -> put("background", value)
+                        field == "fillMaxWidth" -> put("fillMaxWidth", value.toBoolean())
+                        field == "fillMaxHeight" -> put("fillMaxHeight", value.toBoolean())
+                        field == "elevation" -> put("elevation", value.toFloat())
+                    }
+                })
+            }
+        }
+    }
+
     fun importJsonFromUri(context: Context, uri: Uri) {
         try {
             val content = context.contentResolver.openInputStream(uri)
