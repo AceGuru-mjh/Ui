@@ -1,5 +1,7 @@
 package com.foundry.preview.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,19 +12,27 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import androidx.core.view.drawToBitmap
 import com.foundry.preview.sandbox.PreviewSurface
 import com.foundry.preview.state.FoundryViewModel
 
@@ -33,6 +43,24 @@ fun PreviewScreen(viewModel: FoundryViewModel) {
     val devicePreset by viewModel.devicePreset.collectAsState()
     val zoomLevel by viewModel.zoomLevel.collectAsState()
     val (width, height) = viewModel.getDeviceDimensions()
+    val context = LocalContext.current
+    val view = LocalView.current
+    val graphicsLayer = rememberGraphicsLayer()
+
+    val pngExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("image/png")
+    ) { uri ->
+        uri?.let {
+            try {
+                val imageBitmap = graphicsLayer.toImageBitmap()
+                val bitmap = imageBitmap.asAndroidBitmap()
+                viewModel.exportPngToUri(context, it, bitmap)
+            } catch (e: Exception) {
+                val bitmap = view.drawToBitmap()
+                viewModel.exportPngToUri(context, it, bitmap)
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -59,6 +87,9 @@ fun PreviewScreen(viewModel: FoundryViewModel) {
                 )
                 IconButton(onClick = { viewModel.zoomIn() }) {
                     Icon(Icons.Filled.Add, contentDescription = "Zoom In")
+                }
+                TextButton(onClick = { viewModel.resetZoom() }) {
+                    Text("Reset", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -98,10 +129,15 @@ fun PreviewScreen(viewModel: FoundryViewModel) {
             Text("Refresh Preview")
         }
 
+        IconButton(onClick = { pngExportLauncher.launch("preview.png") }) {
+            Icon(Icons.Filled.Save, contentDescription = "Export PNG")
+        }
+
         Box(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .padding(top = 8.dp),
             contentAlignment = Alignment.Center
         ) {
             Box(
@@ -110,12 +146,21 @@ fun PreviewScreen(viewModel: FoundryViewModel) {
                     scaleY = zoomLevel
                 )
             ) {
-                PreviewSurface(
-                    document = document,
-                    deviceWidth = width,
-                    deviceHeight = height,
-                    diagnostics = diagnostics
-                )
+                Box(
+                    modifier = Modifier.drawWithContent {
+                        graphicsLayer.record {
+                            this@drawWithContent.drawContent()
+                        }
+                        drawContent()
+                    }
+                ) {
+                    PreviewSurface(
+                        document = document,
+                        deviceWidth = width,
+                        deviceHeight = height,
+                        diagnostics = diagnostics
+                    )
+                }
             }
         }
     }
