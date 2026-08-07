@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.ExperimentalGraphicsApi
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
@@ -36,6 +37,7 @@ import androidx.core.view.drawToBitmap
 import com.foundry.preview.sandbox.PreviewSurface
 import com.foundry.preview.state.FoundryViewModel
 
+@OptIn(ExperimentalGraphicsApi::class)
 @Composable
 fun PreviewScreen(viewModel: FoundryViewModel) {
     val document by viewModel.document.collectAsState()
