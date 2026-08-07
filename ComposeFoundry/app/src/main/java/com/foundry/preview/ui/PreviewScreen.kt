@@ -23,6 +23,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -36,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.drawToBitmap
 import com.foundry.preview.sandbox.PreviewSurface
 import com.foundry.preview.state.FoundryViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalGraphicsApi::class)
 @Composable
@@ -48,18 +50,21 @@ fun PreviewScreen(viewModel: FoundryViewModel) {
     val context = LocalContext.current
     val view = LocalView.current
     val graphicsLayer = rememberGraphicsLayer()
+    val scope = rememberCoroutineScope()
 
     val pngExportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("image/png")
     ) { uri ->
         uri?.let {
-            try {
-                val imageBitmap = graphicsLayer.toImageBitmap()
-                val bitmap = imageBitmap.asAndroidBitmap()
-                viewModel.exportPngToUri(context, it, bitmap)
-            } catch (e: Exception) {
-                val bitmap = view.drawToBitmap()
-                viewModel.exportPngToUri(context, it, bitmap)
+            scope.launch {
+                try {
+                    val imageBitmap = graphicsLayer.toImageBitmap()
+                    val bitmap = imageBitmap.asAndroidBitmap()
+                    viewModel.exportPngToUri(context, it, bitmap)
+                } catch (e: Exception) {
+                    val bitmap = view.drawToBitmap()
+                    viewModel.exportPngToUri(context, it, bitmap)
+                }
             }
         }
     }
