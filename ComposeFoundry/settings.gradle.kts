@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "ComposeFoundry"
 include(":app")
+include(":foundry-gradient")
