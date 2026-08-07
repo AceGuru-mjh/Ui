@@ -53,10 +53,10 @@ fun MainScreen(viewModel: FoundryViewModel) {
         uri?.let { viewModel.importXmlFromUri(context, it) }
     }
 
-    val createFileLauncher = rememberLauncherForActivityResult(
+    val saveJsonLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
-        uri?.let { viewModel.exportToUri(context, it) }
+        uri?.let { viewModel.exportJsonToUri(context, it) }
     }
 
     LaunchedEffect(statusMessage) {
@@ -82,7 +82,7 @@ fun MainScreen(viewModel: FoundryViewModel) {
                         TextButton(onClick = { openXmlLauncher.launch(arrayOf("text/xml", "application/xml", "*/*")) }) {
                             Text("XML")
                         }
-                        TextButton(onClick = { createFileLauncher.launch("preview.androidui.json") }) {
+                        TextButton(onClick = { saveJsonLauncher.launch("preview.androidui.json") }) {
                             Text("Save")
                         }
                         TextButton(onClick = { viewModel.toggleTheme() }) {
