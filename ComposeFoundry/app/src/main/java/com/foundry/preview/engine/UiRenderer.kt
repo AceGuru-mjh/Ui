@@ -40,8 +40,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TabRow
@@ -429,12 +430,12 @@ private fun RenderSliderComponent(element: UiElement, modifier: Modifier) {
 private fun RenderProgressIndicator(element: UiElement, modifier: Modifier) {
     val progress = element.attributes["progress"]?.toFloatOrNull()
     if (progress != null) {
-        ProgressIndicator(
+        LinearProgressIndicator(
             progress = { progress.coerceIn(0f, 1f) },
             modifier = modifier
         )
     } else {
-        ProgressIndicator(modifier = modifier)
+        LinearProgressIndicator(modifier = modifier)
     }
 }
 
