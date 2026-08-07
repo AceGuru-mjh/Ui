@@ -465,6 +465,37 @@ private val COMPONENT_TEMPLATES = listOf(
           ]
         }
         """.trimIndent()
+    ),
+    ComponentTemplate(
+        name = "Gradient Card",
+        description = "Card with gradient background",
+        dsl = """
+        {
+          "type": "Card",
+          "modifier": { "fillMaxWidth": true, "cornerRadius": 16, "padding": { "bottom": 8 } },
+          "children": [
+            {
+              "type": "Column",
+              "modifier": { "fillMaxWidth": true, "background": "gradient:sunset", "cornerRadius": 16, "padding": { "all": 24 } },
+              "children": [
+                { "type": "Text", "attributes": { "text": "Gradient Card", "fontSize": "20", "fontWeight": "bold", "color": "#FFFFFFFF" } },
+                { "type": "Text", "attributes": { "text": "linear / radial / conic / preset", "fontSize": "13", "color": "#CCFFFFFF" }, "modifier": { "padding": { "top": 4 } } }
+              ]
+            }
+          ]
+        }
+        """.trimIndent()
+    ),
+    ComponentTemplate(
+        name = "Animated Text",
+        description = "Text with fade-in animation",
+        dsl = """
+        {
+          "type": "Text",
+          "attributes": { "text": "Animated!", "fontSize": "24", "fontWeight": "bold", "animation.type": "fade_in", "animation.duration": "800" },
+          "modifier": { "padding": { "bottom": 8 } }
+        }
+        """.trimIndent()
     )
 )
 

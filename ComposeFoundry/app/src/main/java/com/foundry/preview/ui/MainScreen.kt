@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Preview
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -158,6 +160,18 @@ fun MainScreen(viewModel: FoundryViewModel) {
                         icon = { Icon(Icons.Filled.Search, contentDescription = "Inspect") },
                         label = { Text("Inspect") }
                     )
+                    NavigationBarItem(
+                        selected = selectedTab == 4,
+                        onClick = { viewModel.selectTab(4) },
+                        icon = { Icon(Icons.Filled.Code, contentDescription = "Generate") },
+                        label = { Text("Code") }
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 5,
+                        onClick = { viewModel.selectTab(5) },
+                        icon = { Icon(Icons.Filled.Accessibility, contentDescription = "A11y") },
+                        label = { Text("A11y") }
+                    )
                 }
             }
         ) { paddingValues ->
@@ -171,6 +185,8 @@ fun MainScreen(viewModel: FoundryViewModel) {
                     1 -> PreviewScreen(viewModel = viewModel)
                     2 -> ComponentsScreen(viewModel = viewModel)
                     3 -> InspectScreen(viewModel = viewModel)
+                    4 -> CodeGeneratorScreen(viewModel = viewModel)
+                    5 -> AccessibilityScreen(viewModel = viewModel)
                 }
             }
         }
