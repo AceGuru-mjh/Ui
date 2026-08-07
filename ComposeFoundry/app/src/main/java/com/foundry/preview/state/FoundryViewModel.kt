@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import com.foundry.preview.dsl.ThemeConfig
+import com.foundry.preview.dsl.UiElement
 import com.foundry.preview.dsl.UiDocument
 import com.foundry.preview.dsl.UiParser
 import com.foundry.preview.dsl.UiValidator
@@ -37,6 +38,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.foundry.codegen.ComposeCodeGenerator
+import com.foundry.codegen.CodegenNode
+import com.foundry.codegen.CodegenModifier
+import com.foundry.codegen.CodegenPadding
+import com.foundry.a11y.AccessibilityAuditor
+import com.foundry.a11y.A11yNode
+import com.foundry.a11y.A11yModifier
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "foundry_settings")
 
@@ -644,5 +652,80 @@ class FoundryViewModel : ViewModel() {
         render()
         _statusMessage.value = "Template loaded"
         scheduleAutoSave()
+    }
+
+    // ===== v1.9 库模块集成 =====
+
+    private val _generatedCode = MutableStateFlow("")
+    val generatedCode: StateFlow<String> = _generatedCode.asStateFlow()
+
+    private val _accessibilityReport = MutableStateFlow("")
+    val accessibilityReport: StateFlow<String> = _accessibilityReport.asStateFlow()
+
+    fun generateComposeCode() {
+        _document.value?.let { doc ->
+            val rootNode = toCodegenNode(doc.root)
+            val generator = ComposeCodeGenerator()
+            _generatedCode.value = generator.generate(rootNode)
+            _statusMessage.value = "Compose code generated (${_generatedCode.value.length} chars)"
+        } ?: run {
+            _statusMessage.value = "No document rendered"
+        }
+    }
+
+    fun runAccessibilityAudit() {
+        _document.value?.let { doc ->
+            val rootNode = toA11yNode(doc.root)
+            val auditor = AccessibilityAuditor()
+            val issues = auditor.audit(rootNode, doc.theme.backgroundColor)
+            _accessibilityReport.value = auditor.formatReport(issues)
+            _statusMessage.value = "Audit: ${issues.size} issue(s) found"
+        } ?: run {
+            _statusMessage.value = "No document rendered"
+        }
+    }
+
+    private fun toCodegenNode(element: UiElement): CodegenNode {
+        return CodegenNode(
+            type = element.type,
+            modifier = CodegenModifier(
+                fillMaxWidth = element.modifier.fillMaxWidth,
+                fillMaxHeight = element.modifier.fillMaxHeight,
+                fillMaxSize = element.modifier.fillMaxSize,
+                width = element.modifier.width,
+                height = element.modifier.height,
+                padding = element.modifier.padding?.let { p ->
+                    CodegenPadding(
+                        all = p.all, horizontal = p.horizontal, vertical = p.vertical,
+                        start = p.start, top = p.top, end = p.end, bottom = p.bottom
+                    )
+                },
+                background = element.modifier.background,
+                cornerRadius = element.modifier.cornerRadius,
+                borderWidth = element.modifier.borderWidth,
+                borderColor = element.modifier.borderColor,
+                elevation = element.modifier.elevation,
+                horizontalAlignment = element.modifier.horizontalAlignment,
+                verticalArrangement = element.modifier.verticalArrangement,
+                verticalAlignment = element.modifier.verticalAlignment,
+                horizontalArrangement = element.modifier.horizontalArrangement,
+                contentAlignment = element.modifier.contentAlignment
+            ),
+            attributes = element.attributes,
+            children = element.children.map { toCodegenNode(it) }
+        )
+    }
+
+    private fun toA11yNode(element: UiElement): A11yNode {
+        return A11yNode(
+            type = element.type,
+            attributes = element.attributes,
+            modifier = A11yModifier(
+                width = element.modifier.width,
+                height = element.modifier.height,
+                background = element.modifier.background
+            ),
+            children = element.children.map { toA11yNode(it) }
+        )
     }
 }

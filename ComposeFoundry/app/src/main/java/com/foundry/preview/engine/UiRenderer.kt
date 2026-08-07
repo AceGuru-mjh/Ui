@@ -53,12 +53,32 @@ import com.foundry.preview.dsl.UiModifierSpec
 import com.foundry.preview.dsl.parseColor
 import com.foundry.gradient.GradientParser
 import com.foundry.gradient.GradientBrushBuilder
+import com.foundry.animation.AnimationParser
+import com.foundry.animation.AnimatedWrapper
+import com.foundry.animation.FoundryAnimationType
 
 @Composable
 fun RenderElement(
     element: UiElement,
     diagnostics: DiagnosticsEngine,
     path: String = "root"
+) {
+    val animSpec = AnimationParser.parseFromAttributes(element.attributes)
+
+    if (animSpec.type != FoundryAnimationType.NONE) {
+        AnimatedWrapper(spec = animSpec) {
+            RenderElementContent(element, diagnostics, path)
+        }
+    } else {
+        RenderElementContent(element, diagnostics, path)
+    }
+}
+
+@Composable
+private fun RenderElementContent(
+    element: UiElement,
+    diagnostics: DiagnosticsEngine,
+    path: String
 ) {
     val modifier = buildModifier(element.modifier)
     val typeLower = element.type.lowercase()
