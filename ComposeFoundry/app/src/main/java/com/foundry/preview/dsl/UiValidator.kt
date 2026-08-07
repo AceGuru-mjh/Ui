@@ -13,7 +13,9 @@ class UiValidator {
         val SUPPORTED_TYPES = setOf(
             "column", "row", "box", "text", "button",
             "spacer", "card", "divider", "image",
-            "textfield", "scroll", "surface"
+            "textfield", "scroll", "surface",
+            "lazycolumn", "switch", "checkbox",
+            "slider", "progressindicator", "tabrow"
         )
         const val MAX_DEPTH = 32
     }

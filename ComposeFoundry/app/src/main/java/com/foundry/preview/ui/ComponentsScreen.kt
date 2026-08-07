@@ -171,6 +171,91 @@ private val COMPONENT_TEMPLATES = listOf(
           ]
         }
         """.trimIndent()
+    ),
+    ComponentTemplate(
+        name = "LazyColumn",
+        description = "Scrollable list container",
+        dsl = """
+        {
+          "type": "LazyColumn",
+          "modifier": { "fillMaxWidth": true, "height": 200, "padding": { "bottom": 8 } },
+          "children": [
+            { "type": "Text", "attributes": { "text": "Item 1" }, "modifier": { "padding": { "all": 8 } } },
+            { "type": "Text", "attributes": { "text": "Item 2" }, "modifier": { "padding": { "all": 8 } } },
+            { "type": "Text", "attributes": { "text": "Item 3" }, "modifier": { "padding": { "all": 8 } } }
+          ]
+        }
+        """.trimIndent()
+    ),
+    ComponentTemplate(
+        name = "Switch",
+        description = "Toggle switch with label",
+        dsl = """
+        {
+          "type": "Switch",
+          "attributes": { "label": "Enable feature", "checked": "false" },
+          "modifier": { "fillMaxWidth": true, "padding": { "bottom": 8 } }
+        }
+        """.trimIndent()
+    ),
+    ComponentTemplate(
+        name = "Checkbox",
+        description = "Checkbox with label",
+        dsl = """
+        {
+          "type": "Checkbox",
+          "attributes": { "label": "Accept terms", "checked": "false" },
+          "modifier": { "padding": { "bottom": 8 } }
+        }
+        """.trimIndent()
+    ),
+    ComponentTemplate(
+        name = "Slider",
+        description = "Value slider with range",
+        dsl = """
+        {
+          "type": "Slider",
+          "attributes": { "min": "0", "max": "100", "value": "50" },
+          "modifier": { "fillMaxWidth": true, "padding": { "bottom": 8 } }
+        }
+        """.trimIndent()
+    ),
+    ComponentTemplate(
+        name = "ProgressIndicator",
+        description = "Loading/progress bar",
+        dsl = """
+        {
+          "type": "ProgressIndicator",
+          "attributes": { "progress": "0.6" },
+          "modifier": { "fillMaxWidth": true, "padding": { "bottom": 8 } }
+        }
+        """.trimIndent()
+    ),
+    ComponentTemplate(
+        name = "TabRow",
+        description = "Tab bar with switchable content",
+        dsl = """
+        {
+          "type": "TabRow",
+          "modifier": { "fillMaxWidth": true, "padding": { "bottom": 8 } },
+          "children": [
+            {
+              "type": "Box",
+              "attributes": { "text": "Tab 1" },
+              "children": [
+                { "type": "Text", "attributes": { "text": "Content 1" } }
+              ]
+            },
+            {
+              "type": "Box",
+              "attributes": { "text": "Tab 2" },
+              "children": [
+                { "type": "Text", "attributes": { "text": "Content 2" } }
+              ]
+            }
+          ]
+        }
+        """.trimIndent()
     )
 )
 
