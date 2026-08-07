@@ -24,6 +24,21 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "foundry_settings")
 
 class FoundryViewModel : ViewModel() {
 
@@ -66,6 +81,41 @@ class FoundryViewModel : ViewModel() {
         ignoreUnknownKeys = true
         isLenient = true
         coerceInputValues = true
+    }
+
+    fun initializeDataStore(context: Context) {
+        dataStore = context.dataStore
+        saveScope.launch {
+            try {
+                val prefs = dataStore!!.data.first()
+                val savedDocs = prefs[KEY_DOCUMENTS]
+                val savedActiveIndex = prefs[KEY_ACTIVE_INDEX] ?: 0
+                val savedIsDark = prefs[KEY_IS_DARK] ?: false
+                val savedDevicePreset = prefs[KEY_DEVICE_PRESET] ?: "Pixel 7"
+                val savedNextDocId = prefs[KEY_NEXT_DOC_ID] ?: 1
+
+                _isDarkTheme.value = savedIsDark
+                _devicePreset.value = savedDevicePreset
+                nextDocId = savedNextDocId
+
+                if (savedDocs != null && savedDocs.isNotEmpty()) {
+                    try {
+                        val docList = kotlinx.serialization.json.Json.decodeFromString<List<DocumentTab>>(savedDocs)
+                        if (docList.isNotEmpty()) {
+                            _openDocuments.value = docList
+                            val validIndex = savedActiveIndex.coerceIn(0, docList.size - 1)
+                            _activeDocIndex.value = validIndex
+                            _code.value = docList[validIndex].code
+                            render()
+                        }
+                    } catch (e: Exception) {
+                        // 解析失败则使用默认
+                    }
+                }
+            } catch (e: Exception) {
+                // DataStore 读取失败，使用默认值
+            }
+        }
     }
 
     fun initializeWithSample(dsl: String) {
@@ -323,6 +373,7 @@ class FoundryViewModel : ViewModel() {
         }
     }
 
+    @kotlinx.serialization.Serializable
     data class DocumentTab(
         val id: Int,
         val name: String,
@@ -336,6 +387,18 @@ class FoundryViewModel : ViewModel() {
     val activeDocIndex: StateFlow<Int> = _activeDocIndex.asStateFlow()
 
     private var nextDocId = 1
+
+    private var dataStore: DataStore<Preferences>? = null
+    private var saveJob: Job? = null
+    private val saveScope = CoroutineScope(Dispatchers.IO)
+
+    companion object {
+        private val KEY_DOCUMENTS = stringPreferencesKey("open_documents")
+        private val KEY_ACTIVE_INDEX = intPreferencesKey("active_doc_index")
+        private val KEY_IS_DARK = booleanPreferencesKey("is_dark_theme")
+        private val KEY_DEVICE_PRESET = stringPreferencesKey("device_preset")
+        private val KEY_NEXT_DOC_ID = intPreferencesKey("next_doc_id")
+    }
 
     fun addDocument() {
         val docs = _openDocuments.value.toMutableList()
@@ -534,5 +597,36 @@ class FoundryViewModel : ViewModel() {
 
     fun clearStatus() {
         _statusMessage.value = ""
+    }
+
+    private fun scheduleAutoSave() {
+        saveJob?.cancel()
+        saveJob = saveScope.launch {
+            delay(2000)
+            performSave()
+        }
+    }
+
+    private suspend fun performSave() {
+        val store = dataStore ?: return
+        try {
+            val docsJson = kotlinx.serialization.json.Json.encodeToString(_openDocuments.value)
+            store.edit { prefs ->
+                prefs[KEY_DOCUMENTS] = docsJson
+                prefs[KEY_ACTIVE_INDEX] = _activeDocIndex.value
+                prefs[KEY_IS_DARK] = _isDarkTheme.value
+                prefs[KEY_DEVICE_PRESET] = _devicePreset.value
+                prefs[KEY_NEXT_DOC_ID] = nextDocId
+            }
+        } catch (e: Exception) {
+            // 保存失败静默处理
+        }
+    }
+
+    fun saveNow() {
+        saveJob?.cancel()
+        saveScope.launch {
+            performSave()
+        }
     }
 }
