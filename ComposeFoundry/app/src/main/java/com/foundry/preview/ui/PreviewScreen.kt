@@ -35,8 +35,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.drawToBitmap
+import com.foundry.preview.engine.RendererManager
+import com.foundry.preview.engine.XmlDirectPreview
 import com.foundry.preview.sandbox.PreviewSurface
 import com.foundry.preview.state.FoundryViewModel
+import com.foundry.preview.state.RenderMode
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalGraphicsApi::class)
@@ -44,6 +47,9 @@ import kotlinx.coroutines.launch
 fun PreviewScreen(viewModel: FoundryViewModel) {
     val document by viewModel.document.collectAsState()
     val diagnostics by viewModel.diagnostics.collectAsState()
+    val renderMode by viewModel.renderMode.collectAsState()
+    val xmlContent by viewModel.xmlContent.collectAsState()
+    val uiGraph by viewModel.uiGraph.collectAsState()
     val devicePreset by viewModel.devicePreset.collectAsState()
     val zoomLevel by viewModel.zoomLevel.collectAsState()
     val (width, height) = viewModel.getDeviceDimensions()
@@ -129,6 +135,39 @@ fun PreviewScreen(viewModel: FoundryViewModel) {
             )
         }
 
+        // 平台元数据：来自插件产出的规范化 UiGraph
+        uiGraph?.meta?.let { meta ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Plugin: ${meta.parser}",
+                    style = MaterialTheme.typography.labelSmall
+                )
+                Text(
+                    text = "Level: ${meta.previewLevel.name}",
+                    style = MaterialTheme.typography.labelSmall
+                )
+                Text(
+                    text = "Confidence: ${meta.confidence.name}",
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+
+        // 平台插件系统可见化：列出已注册格式插件
+        val plugins = RendererManager.registeredPlugins()
+        if (plugins.isNotEmpty()) {
+            Text(
+                text = "Registered plugins: ${plugins.joinToString { it.descriptor.displayName }}",
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+
         OutlinedButton(
             onClick = { viewModel.render() },
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
@@ -161,12 +200,22 @@ fun PreviewScreen(viewModel: FoundryViewModel) {
                         drawContent()
                     }
                 ) {
-                    PreviewSurface(
-                        document = document,
-                        deviceWidth = width,
-                        deviceHeight = height,
-                        diagnostics = diagnostics
-                    )
+                when (renderMode) {
+                    RenderMode.JSON_DSL -> {
+                        PreviewSurface(
+                            document = document,
+                            deviceWidth = width,
+                            deviceHeight = height,
+                            diagnostics = diagnostics
+                        )
+                    }
+                    RenderMode.XML_DIRECT -> {
+                        XmlDirectPreview(
+                            xmlContent = xmlContent,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
                 }
             }
         }

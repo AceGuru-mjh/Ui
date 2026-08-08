@@ -1,5 +1,6 @@
 package com.foundry.preview.dsl
 
+import com.foundry.preview.engine.ComponentRegistry
 import com.foundry.preview.engine.Diagnostic
 import com.foundry.preview.engine.DiagnosticLevel
 
@@ -10,13 +11,8 @@ import com.foundry.preview.engine.DiagnosticLevel
 class UiValidator {
 
     companion object {
-        val SUPPORTED_TYPES = setOf(
-            "column", "row", "box", "text", "button",
-            "spacer", "card", "divider", "image",
-            "textfield", "scroll", "surface",
-            "lazycolumn", "switch", "checkbox",
-            "slider", "progressindicator", "tabrow"
-        )
+        val SUPPORTED_TYPES: Set<String>
+            get() = ComponentRegistry.allTypes()
         const val MAX_DEPTH = 32
     }
 
