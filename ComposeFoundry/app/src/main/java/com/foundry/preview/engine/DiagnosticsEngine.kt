@@ -42,6 +42,10 @@ class DiagnosticsEngine {
         _diagnostics.add(Diagnostic(DiagnosticLevel.INFO, message, path))
     }
 
+    fun add(diagnostic: Diagnostic) {
+        _diagnostics.add(diagnostic)
+    }
+
     fun addAll(items: List<Diagnostic>) {
         _diagnostics.addAll(items)
     }

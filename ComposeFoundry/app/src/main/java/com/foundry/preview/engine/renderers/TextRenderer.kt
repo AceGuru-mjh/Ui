@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.sp
 import com.foundry.preview.dsl.UiElement
 import com.foundry.preview.engine.ComponentRenderer
 import com.foundry.preview.engine.DiagnosticsEngine
-import com.foundry.preview.engine.parseColor
+import com.foundry.preview.dsl.parseColor
 
 class TextRenderer : ComponentRenderer {
     override val type = "text"

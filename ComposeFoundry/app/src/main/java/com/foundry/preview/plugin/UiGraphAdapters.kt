@@ -69,6 +69,7 @@ fun toUiNode(element: UiElement, path: String = "root"): UiNode {
                 verticalAlignment = dslMod.verticalAlignment,
                 horizontalArrangement = dslMod.horizontalArrangement,
                 contentAlignment = dslMod.contentAlignment,
+                align = dslMod.align,
                 scrollable = dslMod.scrollable
             )
         )
@@ -112,6 +113,7 @@ fun toUiElement(node: UiNode): UiElement {
         verticalAlignment = mod?.verticalAlignment,
         horizontalArrangement = mod?.horizontalArrangement,
         contentAlignment = mod?.contentAlignment,
+        align = mod?.align,
         scrollable = mod?.scrollable ?: false
     )
     val attributes = node.attributes.mapValues { (_, v) -> v.toRawString() }

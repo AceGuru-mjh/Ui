@@ -7,13 +7,17 @@ package com.foundry.preview.engine
 object ComponentRegistry {
     private val renderers = mutableMapOf<String, ComponentRenderer>()
 
+    @Synchronized
     fun register(renderer: ComponentRenderer) {
         renderers[renderer.type.lowercase()] = renderer
     }
 
+    @Synchronized
     fun get(type: String): ComponentRenderer? = renderers[type.lowercase()]
 
+    @Synchronized
     fun isRegistered(type: String): Boolean = renderers.containsKey(type.lowercase())
 
+    @Synchronized
     fun allTypes(): Set<String> = renderers.keys.toSet()
 }

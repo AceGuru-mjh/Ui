@@ -2,8 +2,10 @@ package com.foundry.preview.engine.renderers
 
 import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.foundry.preview.dsl.UiElement
 import com.foundry.preview.engine.ComponentRenderer

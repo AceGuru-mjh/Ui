@@ -59,10 +59,6 @@ dependencies {
 
     // 图片加载（替代 Image 占位符） ------------------
     implementation("io.coil-kt:coil-compose:2.6.0")
-    // ConstraintLayout Compose -----------------------
-    implementation("androidx.constraintlayout:constraintlayout-compose:1.0.1")
-    // Navigation Compose ------------------------------
-    implementation("androidx.navigation:navigation-compose:2.7.7")
 
     // Core
     implementation("androidx.core:core-ktx:1.12.0")
