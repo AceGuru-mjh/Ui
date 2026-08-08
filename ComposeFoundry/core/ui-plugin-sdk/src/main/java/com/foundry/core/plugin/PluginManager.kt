@@ -1,5 +1,7 @@
 package com.foundry.core.plugin
 
+import com.foundry.core.uimodel.UiCapability
+
 /**
  * 插件注册中心（单例服务层）。
  *
