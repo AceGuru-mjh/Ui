@@ -30,4 +30,6 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.09.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
+
+    testImplementation("junit:junit:4.13.2")
 }
