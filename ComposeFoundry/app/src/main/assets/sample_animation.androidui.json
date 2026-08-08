@@ -1,0 +1,108 @@
+{
+  "version": "1.0",
+  "theme": {
+    "primaryColor": "#FF00BCD4",
+    "backgroundColor": "#FF1A1A2E",
+    "surfaceColor": "#FF16213E",
+    "textColor": "#FFEAEAEA",
+    "isDark": true
+  },
+  "root": {
+    "type": "column",
+    "modifier": {
+      "fillMaxSize": true,
+      "padding": { "all": 24 },
+      "background": "#FF1A1A2E"
+    },
+    "children": [
+      {
+        "type": "text",
+        "attributes": {
+          "text": "Animation Showcase",
+          "fontSize": "24",
+          "fontWeight": "bold"
+        },
+        "modifier": { "padding": { "bottom": 24 } }
+      },
+      {
+        "type": "card",
+        "attributes": {
+          "animation": "fadeIn:duration=600"
+        },
+        "modifier": {
+          "fillMaxWidth": true,
+          "cornerRadius": 16,
+          "background": "#FF16213E",
+          "padding": { "all": 20, "bottom": 16 }
+        },
+        "children": [
+          {
+            "type": "text",
+            "attributes": { "text": "Fade In Card", "fontSize": "16" }
+          },
+          {
+            "type": "text",
+            "attributes": { "text": "This card fades in over 600ms", "fontSize": "12" }
+          }
+        ]
+      },
+      {
+        "type": "card",
+        "attributes": {
+          "animation": "slideInLeft:duration=800,easing=overshoot"
+        },
+        "modifier": {
+          "fillMaxWidth": true,
+          "cornerRadius": 16,
+          "background": "#FF0F3460",
+          "padding": { "all": 20, "bottom": 16 }
+        },
+        "children": [
+          {
+            "type": "text",
+            "attributes": { "text": "Slide In Left", "fontSize": "16" }
+          },
+          {
+            "type": "text",
+            "attributes": { "text": "Overshoot easing, 800ms", "fontSize": "12" }
+          }
+        ]
+      },
+      {
+        "type": "card",
+        "attributes": {
+          "animation": "scaleIn:duration=500",
+          "animationDelay": "300"
+        },
+        "modifier": {
+          "fillMaxWidth": true,
+          "cornerRadius": 16,
+          "background": "linear-gradient(45deg, #FF00BCD4, #FF6200EE)",
+          "padding": { "all": 20, "bottom": 16 }
+        },
+        "children": [
+          {
+            "type": "text",
+            "attributes": { "text": "Scale In + Gradient", "fontSize": "16" }
+          },
+          {
+            "type": "text",
+            "attributes": { "text": "300ms delay, gradient background", "fontSize": "12" }
+          }
+        ]
+      },
+      {
+        "type": "button",
+        "attributes": {
+          "text": "Bounce Button",
+          "animation": "bounceIn:duration=700"
+        },
+        "modifier": {
+          "fillMaxWidth": true,
+          "cornerRadius": 24,
+          "background": "#FF00BCD4"
+        }
+      }
+    ]
+  }
+}

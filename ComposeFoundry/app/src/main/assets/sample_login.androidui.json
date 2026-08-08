@@ -1,0 +1,85 @@
+{
+  "version": "1.0",
+  "theme": {
+    "primaryColor": "#FF1976D2",
+    "backgroundColor": "#FFFFFFFF",
+    "surfaceColor": "#FFF5F5F5",
+    "textColor": "#FF212121",
+    "isDark": false
+  },
+  "root": {
+    "type": "column",
+    "modifier": {
+      "fillMaxSize": true,
+      "padding": { "all": 32 },
+      "background": "#FFFFFFFF"
+    },
+    "children": [
+      {
+        "type": "spacer",
+        "modifier": { "height": 48 }
+      },
+      {
+        "type": "text",
+        "attributes": {
+          "text": "Welcome Back",
+          "fontSize": "28",
+          "fontWeight": "bold"
+        },
+        "modifier": { "padding": { "bottom": 8 } }
+      },
+      {
+        "type": "text",
+        "attributes": {
+          "text": "Sign in to continue",
+          "fontSize": "14"
+        },
+        "modifier": { "padding": { "bottom": 32 } }
+      },
+      {
+        "type": "textfield",
+        "attributes": {
+          "text": "",
+          "label": "Email",
+          "placeholder": "you@example.com"
+        },
+        "modifier": {
+          "fillMaxWidth": true,
+          "padding": { "bottom": 16 }
+        }
+      },
+      {
+        "type": "textfield",
+        "attributes": {
+          "text": "",
+          "label": "Password",
+          "placeholder": "••••••••"
+        },
+        "modifier": {
+          "fillMaxWidth": true,
+          "padding": { "bottom": 24 }
+        }
+      },
+      {
+        "type": "button",
+        "attributes": { "text": "Sign In" },
+        "modifier": {
+          "fillMaxWidth": true,
+          "cornerRadius": 12,
+          "background": "#FF1976D2"
+        }
+      },
+      {
+        "type": "spacer",
+        "modifier": { "height": 16 }
+      },
+      {
+        "type": "text",
+        "attributes": {
+          "text": "Forgot password?",
+          "fontSize": "14"
+        }
+      }
+    ]
+  }
+}

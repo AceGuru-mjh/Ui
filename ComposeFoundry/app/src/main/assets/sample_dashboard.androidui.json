@@ -1,0 +1,156 @@
+{
+  "version": "1.0",
+  "theme": {
+    "primaryColor": "#FF6200EE",
+    "backgroundColor": "#FFF8F9FA",
+    "surfaceColor": "#FFFFFFFF",
+    "textColor": "#FF1A1A2E",
+    "isDark": false
+  },
+  "root": {
+    "type": "column",
+    "modifier": {
+      "fillMaxSize": true,
+      "background": "#FFF8F9FA"
+    },
+    "children": [
+      {
+        "type": "surface",
+        "modifier": {
+          "fillMaxWidth": true,
+          "padding": { "all": 16 },
+          "background": "linear-gradient(135deg, #FF6200EE, #FF9C27B0)",
+          "cornerRadius": 0
+        },
+        "children": [
+          {
+            "type": "text",
+            "attributes": {
+              "text": "Dashboard",
+              "fontSize": "22",
+              "fontWeight": "bold"
+            }
+          },
+          {
+            "type": "text",
+            "attributes": {
+              "text": "Welcome back, Developer",
+              "fontSize": "14"
+            }
+          }
+        ]
+      },
+      {
+        "type": "scroll",
+        "modifier": { "fillMaxWidth": true },
+        "children": [
+          {
+            "type": "column",
+            "modifier": {
+              "fillMaxWidth": true,
+              "padding": { "all": 16 }
+            },
+            "children": [
+              {
+                "type": "row",
+                "modifier": {
+                  "fillMaxWidth": true,
+                  "padding": { "bottom": 12 }
+                },
+                "children": [
+                  {
+                    "type": "card",
+                    "modifier": {
+                      "width": 160,
+                      "height": 100,
+                      "cornerRadius": 12,
+                      "elevation": 4,
+                      "padding": { "end": 8 }
+                    },
+                    "children": [
+                      {
+                        "type": "text",
+                        "attributes": { "text": "Revenue", "fontSize": "12" }
+                      },
+                      {
+                        "type": "text",
+                        "attributes": { "text": "$12,450", "fontSize": "20", "fontWeight": "bold" }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "card",
+                    "modifier": {
+                      "width": 160,
+                      "height": 100,
+                      "cornerRadius": 12,
+                      "elevation": 4
+                    },
+                    "children": [
+                      {
+                        "type": "text",
+                        "attributes": { "text": "Users", "fontSize": "12" }
+                      },
+                      {
+                        "type": "text",
+                        "attributes": { "text": "3,842", "fontSize": "20", "fontWeight": "bold" }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "card",
+                "modifier": {
+                  "fillMaxWidth": true,
+                  "cornerRadius": 12,
+                  "elevation": 2,
+                  "padding": { "all": 16 }
+                },
+                "children": [
+                  {
+                    "type": "text",
+                    "attributes": { "text": "Weekly Progress", "fontSize": "16", "fontWeight": "bold" },
+                    "modifier": { "padding": { "bottom": 12 } }
+                  },
+                  {
+                    "type": "progressindicator",
+                    "modifier": { "fillMaxWidth": true },
+                    "attributes": { "progress": "0.72" }
+                  },
+                  {
+                    "type": "text",
+                    "attributes": { "text": "72% complete", "fontSize": "12" },
+                    "modifier": { "padding": { "top": 8 } }
+                  }
+                ]
+              },
+              {
+                "type": "divider",
+                "modifier": { "padding": { "vertical": 16 } }
+              },
+              {
+                "type": "row",
+                "modifier": { "fillMaxWidth": true },
+                "children": [
+                  {
+                    "type": "switch",
+                    "attributes": { "checked": "true", "label": "Notifications" }
+                  },
+                  {
+                    "type": "spacer",
+                    "modifier": { "width": 16 }
+                  },
+                  {
+                    "type": "checkbox",
+                    "attributes": { "checked": "false", "label": "Dark Mode" }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
