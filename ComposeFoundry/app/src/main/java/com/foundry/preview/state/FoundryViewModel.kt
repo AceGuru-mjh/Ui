@@ -100,6 +100,13 @@ class FoundryViewModel : ViewModel() {
     private val _uiGraph = MutableStateFlow<UiGraph?>(null)
     val uiGraph: StateFlow<UiGraph?> = _uiGraph.asStateFlow()
 
+    // 任务 D：项目级索引器状态（Stage 4 预览原型）
+    private val _projectRootPath = MutableStateFlow("")
+    val projectRootPath: StateFlow<String> = _projectRootPath.asStateFlow()
+
+    private val _projectIndex = MutableStateFlow<com.foundry.preview.project.ProjectIndex?>(null)
+    val projectIndex: StateFlow<com.foundry.preview.project.ProjectIndex?> = _projectIndex.asStateFlow()
+
     private val undoStack = mutableListOf<String>()
     private val redoStack = mutableListOf<String>()
 
@@ -811,5 +818,69 @@ class FoundryViewModel : ViewModel() {
             ),
             children = element.children.map { toA11yNode(it) }
         )
+    }
+
+    // ===== 任务 D：项目级索引 / 加载（Stage 4 原型） =====
+
+    fun setProjectRootPath(path: String) {
+        _projectRootPath.value = path
+    }
+
+    /** 扫描项目目录，列出可预览的 XML/JSON/KT 文件。 */
+    fun indexProject() {
+        val root = _projectRootPath.value.trim()
+        if (root.isEmpty()) {
+            _statusMessage.value = "请输入项目根目录路径"
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val index = ProjectIndexer.index(root)
+            _projectIndex.value = index
+            _statusMessage.value = "索引完成：${index.previewableCount} 个可预览文件（共 ${index.files.size} 个）"
+        }
+    }
+
+    /** 从项目索引中加载某个文件，走统一插件管线渲染。 */
+    fun loadProjectFile(path: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val content = runCatching { File(path).readText(Charsets.UTF_8) }
+                .getOrElse { e ->
+                    _statusMessage.value = "读取失败：${e.message}"
+                    return@launch
+                }
+            val ext = path.substringAfterLast('.', "").lowercase()
+            val baseArtifact = UiArtifact(
+                id = "project:$path",
+                uri = path,
+                displayName = path.substringAfterLast('/').substringAfterLast('\\'),
+                content = content,
+                extension = ext
+            )
+            val artifact = baseArtifact.copy(detectedKind = ArtifactDetector.detect(baseArtifact))
+            val plugin = PluginManager.selectFor(artifact, requires = setOf(UiCapability.RENDER_INTERACTIVE))
+                ?: PluginManager.selectFor(artifact)
+            if (plugin == null) {
+                _statusMessage.value = "无匹配插件：${artifact.displayName}"
+                return@launch
+            }
+            when (val result = plugin.parse(artifact, PreviewContext())) {
+                is ParseResult.Success -> {
+                    _uiGraph.value = result.graph
+                    _document.value = toUiDocument(result.graph)
+                    _code.value = content
+                    _renderMode.value = RenderMode.JSON_DSL
+                    _statusMessage.value = "已加载并预览：${artifact.displayName}"
+                }
+                is ParseResult.Partial -> {
+                    _uiGraph.value = result.graph
+                    _document.value = result.graph?.let { toUiDocument(it) }
+                    _code.value = content
+                    _statusMessage.value = "部分预览（有降级）：${artifact.displayName}"
+                }
+                is ParseResult.Failed -> {
+                    _statusMessage.value = "解析失败：${artifact.displayName}"
+                }
+            }
+        }
     }
 }

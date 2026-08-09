@@ -54,15 +54,16 @@ reduced over time as renderers consume `UiGraph` directly.
 ## Plugins shipped today
 
 - **`AndroidUiJsonPlugin`** — parses the `.androidui.json` DSL via `UiParser`/`UiValidator`.
-- **`AndroidUiXmlPlugin`** — converts Android XML layouts to `UiGraph` via `XmlLayoutParser`.
+- **`AndroidUiXmlPlugin`** — converts Android XML layouts to `UiGraph` via `XmlLayoutParser`. Supports an expanded tag set (LinearLayout / FrameLayout / RelativeLayout / ConstraintLayout / TextView / Button / ImageButton / ImageView / EditText / View / Space / ScrollView / HorizontalScrollView / NestedScrollView / CardView / MaterialCardView / ProgressBar / CheckBox / RadioButton / RadioGroup / Switch / SwitchCompat / SwitchMaterial / SeekBar / Spinner / TabLayout / Chip / ChipGroup / MaterialDivider / FAB / Toolbar / AppBarLayout / RecyclerView / ViewPager2 / SwipeRefreshLayout …) and an extended `android:` attribute whitelist (margin / padding / elevation / alpha / gravity / layout_gravity / textStyle / letterSpacing / maxLines / checked / progress / weight …). Unknown tags still downgrade to `Box` with a WARNING.
+- **`AndroidUiComposePlugin`** (Stage 4 prototype) — parses Jetpack Compose **Kotlin source** (`.kt` / `.kts`) into `UiGraph` via `ComposeSourceParser`. Statically recognizes `@Composable fun` and Compose component calls (`Column` / `Row` / `Box` / `Text` / `Button` / `Image` / `Card` / `Scaffold` / `LazyColumn` / `Surface` / `Divider` / `Checkbox` / `Switch` / `Slider` / `TextField` / `TabRow` / `ProgressIndicator` / `Chip` …) plus `Modifier` chains (`fillMax*` / `padding` / `size` / `background` / `weight` / `shadow`). No code execution yet (static structural preview only).
 
 ## Known limitations (current)
 
 1. **`UiGraph` is not yet the direct render source** — partially mitigated: `PreviewSurface` now receives the normalized `UiGraph` and feeds `ComponentRenderer` via a thin `toUiElement` adapter (see limitation #1 history). Next step is to make `ComponentRenderer` consume `UiNode` directly so the adapter can be removed.
 2. ~~**Plugin matching was lenient**~~ — now mitigated by `ArtifactDetector`, which fills `artifact.detectedKind` from content structure / MIME / extension before `PluginManager` selects (see limitation #2 history). Plugins still keep a lenient substring fallback for robustness.
 3. **XML preview is low-guarantee** — partially mitigated: `XmlLayoutParser` now emits `WARNING` diagnostics for downgraded tags and ignored attributes, and `AndroidUiXmlPlugin` resolves `@string` / `@color` / `@dimen` references when a `ResourceTable` is supplied via `PreviewContext.resourceTable` (otherwise it keeps the reference and emits an `INFO` diagnostic). Cross-file resource merging (project-level) is still future work.
-4. **No project-level preview** — a whole Android project (manifest, modules, resource merge) is not yet indexed.
-5. **core modules are Android libraries** — `ui-model` / `ui-plugin-sdk` do not depend on the Android framework and could become plain JVM / KMP modules for reuse in CLI / desktop / server.
+4. ~~**No project-level preview**~~ — partially mitigated: `ProjectIndexer` (pure JVM) scans a directory tree and classifies files into previewable kinds (JSON DSL / Android XML Layout / Compose source) vs. other resources, surfaced in the new **Project** tab of the app. Full project preview (manifest / module / resource merge / navigation graph → `ProjectUiGraph`) is still future work.
+5. ~~**core modules are Android libraries**~~ — **resolved (P2-1 core decoupling)** : `core:ui-model` and `core:ui-plugin-sdk` are now plain `java-library` + Kotlin/JVM modules with **no Android dependency** (verified: no `android`/`androidx` imports). They can be reused in CLI / desktop / server.
 
 ## Roadmap
 
@@ -86,6 +87,7 @@ reduced over time as renderers consume `UiGraph` directly.
 - Remove the `UiGraph → UiDocument → UiElement` adapter once renderers consume `UiNode`.
 
 ### Stage 4 — Project & advanced formats
-- `core:ui-project` + `plugin-android-project`: scan modules, manifest, resource merge, navigation graphs → `ProjectUiGraph`.
-- Compose code preview (composable recognition → static UI graph → sandboxed execution).
-- APK / AAB resource extraction and preview.
+- [done] **Project indexer prototype** — `ProjectIndexer` (pure JVM) scans a directory and lists previewable files; surfaced via the new **Project** tab. Full `core:ui-project` + `plugin-android-project` (manifest / module / resource merge / navigation graph → `ProjectUiGraph`) is next.
+- [prototype] **Compose code preview** — `AndroidUiComposePlugin` + `ComposeSourceParser` do static `@Composable` recognition → `UiGraph`. Sandboxed **execution** (to reflect runtime state / conditionals / loops) is still future work.
+- APK / AAB resource extraction and preview — not started.
+- ~~P2-1 core decoupling~~ — **done**: `core:ui-model` / `core:ui-plugin-sdk` are plain JVM modules.

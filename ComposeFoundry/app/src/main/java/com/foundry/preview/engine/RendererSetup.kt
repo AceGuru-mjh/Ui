@@ -25,4 +25,7 @@ fun initializeRenderers() {
     ComponentRegistry.register(SliderRenderer())
     ComponentRegistry.register(ProgressIndicatorRenderer())
     ComponentRegistry.register(TabRowRenderer())
+    ComponentRegistry.register(RadioButtonRenderer())
+    ComponentRegistry.register(SpinnerRenderer())
+    ComponentRegistry.register(ChipRenderer())
 }

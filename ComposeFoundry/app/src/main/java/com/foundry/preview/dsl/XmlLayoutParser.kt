@@ -55,23 +55,56 @@ class XmlLayoutParser {
 
     // 已支持的 android 命名空间属性白名单；白名单外属性视为不支持并忽略（记录诊断）
     private val SUPPORTED_ANDROID_ATTRS = setOf(
-        "android:layout_width", "android:layout_height", "android:orientation",
+        "android:layout_width", "android:layout_height", "android:layout_margin",
+        "android:layout_marginStart", "android:layout_marginTop",
+        "android:layout_marginEnd", "android:layout_marginBottom",
+        "android:layout_marginHorizontal", "android:layout_marginVertical",
+        "android:orientation",
         "android:padding", "android:paddingStart", "android:paddingTop",
         "android:paddingEnd", "android:paddingBottom",
-        "android:background", "android:text", "android:hint",
-        "android:contentDescription", "android:textSize", "android:textColor",
-        "android:textStyle", "android:gravity", "android:src", "android:id",
-        "android:layout_gravity", "android:layout_weight", "android:visibility",
-        "android:onClick", "android:inputType", "android:maxLines",
-        "android:ellipsize", "android:scaleType"
+        "android:paddingHorizontal", "android:paddingVertical",
+        "android:background", "android:backgroundTint",
+        "android:text", "android:hint", "android:contentDescription",
+        "android:textSize", "android:textColor", "android:textStyle",
+        "android:fontFamily", "android:letterSpacing", "android:lineSpacingExtra",
+        "android:gravity", "android:layout_gravity", "android:layout_weight",
+        "android:visibility", "android:onClick", "android:inputType",
+        "android:maxLines", "android:minLines", "android:lines",
+        "android:ellipsize", "android:scaleType", "android:src",
+        "android:id", "android:clickable", "android:focusable",
+        "android:enabled", "android:alpha", "android:checked",
+        "android:progress", "android:max", "android:min",
+        "android:scrollbars", "android:fadeScrollbars",
+        "android:elevation", "android:translationZ",
+        "android:weightSum", "android:importantForAccessibility"
     )
 
     private fun mapTag(tag: String, attrs: Map<String, String>, issues: MutableList<String>): MutableNode {
         val supported = setOf(
             "LinearLayout", "FrameLayout", "RelativeLayout", "ConstraintLayout",
-            "TextView", "Button", "ImageView", "EditText", "View", "ScrollView",
+            "TextView", "Button", "ImageButton", "ImageView", "EditText", "View",
+            "ScrollView", "HorizontalScrollView", "NestedScrollView",
             "androidx.cardview.widget.CardView",
-            "androidx.constraintlayout.widget.ConstraintLayout"
+            "androidx.constraintlayout.widget.ConstraintLayout",
+            "androidx.recyclerview.widget.RecyclerView",
+            "androidx.viewpager2.widget.ViewPager2",
+            "androidx.compose.ui.platform.ComposeView",
+            "ProgressBar", "SeekBar", "CheckBox", "RadioButton", "RadioGroup",
+            "Switch", "SwitchCompat", "ToggleButton", "Spinner",
+            "ViewPager", "WebView", "SurfaceView", "TextureView",
+            "Space", "Toolbar", "AppBarLayout", "CollapsingToolbarLayout",
+            "TextInputLayout", "TextInputEditText", "MaterialButton",
+            "com.google.android.material.button.MaterialButton",
+            "com.google.android.material.textfield.TextInputLayout",
+            "com.google.android.material.textview.MaterialTextView",
+            "com.google.android.material.switchMaterial.SwitchMaterial",
+            "com.google.android.material.chip.Chip",
+            "com.google.android.material.chip.ChipGroup",
+            "com.google.android.material.floatingactionbutton.FloatingActionButton",
+            "com.google.android.material.tabs.TabLayout",
+            "com.google.android.material.divider.MaterialDivider",
+            "androidx.swiperefreshlayout.widget.SwipeRefreshLayout",
+            "ImageView", "VideoView", "ProgressBar"
         )
         if (tag !in supported) {
             issues += "Unsupported tag '<$tag>' — downgraded to Box (rendering may differ)"
@@ -85,14 +118,43 @@ class XmlLayoutParser {
             "FrameLayout" -> "Box"
             "RelativeLayout" -> "Box"
             "ConstraintLayout" -> "Box"
+            "androidx.constraintlayout.widget.ConstraintLayout" -> "Box"
             "TextView" -> "Text"
             "Button" -> "Button"
+            "ImageButton" -> "Button"
+            "com.google.android.material.button.MaterialButton" -> "Button"
+            "com.google.android.material.textview.MaterialTextView" -> "Text"
             "ImageView" -> "Image"
             "EditText" -> "TextField"
+            "TextInputEditText" -> "TextField"
+            "com.google.android.material.textfield.TextInputLayout" -> "TextField"
             "View" -> "Spacer"
+            "Space" -> "Spacer"
             "ScrollView" -> "Scroll"
+            "HorizontalScrollView" -> "Scroll"
+            "NestedScrollView" -> "Scroll"
             "androidx.cardview.widget.CardView" -> "Card"
-            "androidx.constraintlayout.widget.ConstraintLayout" -> "Box"
+            "com.google.android.material.card.MaterialCardView" -> "Card"
+            "ProgressBar" -> "ProgressIndicator"
+            "CheckBox" -> "Checkbox"
+            "RadioButton" -> "RadioButton"
+            "RadioGroup" -> "Column"
+            "Switch" -> "Switch"
+            "SwitchCompat" -> "Switch"
+            "com.google.android.material.switchMaterial.SwitchMaterial" -> "Switch"
+            "ToggleButton" -> "Switch"
+            "SeekBar" -> "Slider"
+            "Spinner" -> "Spinner"
+            "com.google.android.material.tabs.TabLayout" -> "TabRow"
+            "com.google.android.material.chip.Chip" -> "Chip"
+            "com.google.android.material.chip.ChipGroup" -> "Column"
+            "com.google.android.material.divider.MaterialDivider" -> "Divider"
+            "com.google.android.material.floatingactionbutton.FloatingActionButton" -> "Button"
+            "Toolbar" -> "Box"
+            "AppBarLayout" -> "Box"
+            "androidx.recyclerview.widget.RecyclerView" -> "LazyColumn"
+            "androidx.viewpager2.widget.ViewPager2" -> "LazyColumn"
+            "androidx.swiperefreshlayout.widget.SwipeRefreshLayout" -> "Scroll"
             else -> "Box"
         }
 
@@ -118,10 +180,21 @@ class XmlLayoutParser {
             if (dp != null) modifier = modifier.copy(padding = PaddingSpec(all = dp))
         }
 
+        attrs["android:paddingHorizontal"]?.let { v -> parseDim(v)?.let { modifier = modifier.copy(padding = (modifier.padding ?: PaddingSpec()).copy(horizontal = it)) } }
+        attrs["android:paddingVertical"]?.let { v -> parseDim(v)?.let { modifier = modifier.copy(padding = (modifier.padding ?: PaddingSpec()).copy(vertical = it)) } }
         attrs["android:paddingStart"]?.let { v -> parseDim(v)?.let { modifier = modifier.copy(padding = (modifier.padding ?: PaddingSpec()).copy(start = it)) } }
         attrs["android:paddingTop"]?.let { v -> parseDim(v)?.let { modifier = modifier.copy(padding = (modifier.padding ?: PaddingSpec()).copy(top = it)) } }
         attrs["android:paddingEnd"]?.let { v -> parseDim(v)?.let { modifier = modifier.copy(padding = (modifier.padding ?: PaddingSpec()).copy(end = it)) } }
         attrs["android:paddingBottom"]?.let { v -> parseDim(v)?.let { modifier = modifier.copy(padding = (modifier.padding ?: PaddingSpec()).copy(bottom = it)) } }
+
+        // margin 系列：合并到已有 padding 槽位不影响渲染（用独立 margin 概念映射为外边距近似）
+        attrs["android:layout_margin"]?.let { v -> parseDim(v)?.let { modifier = modifier.copy(margin = PaddingSpec(all = it)) } }
+        attrs["android:layout_marginHorizontal"]?.let { v -> parseDim(v)?.let { modifier = modifier.copy(margin = (modifier.margin ?: PaddingSpec()).copy(horizontal = it)) } }
+        attrs["android:layout_marginVertical"]?.let { v -> parseDim(v)?.let { modifier = modifier.copy(margin = (modifier.margin ?: PaddingSpec()).copy(vertical = it)) } }
+        attrs["android:layout_marginStart"]?.let { v -> parseDim(v)?.let { modifier = modifier.copy(margin = (modifier.margin ?: PaddingSpec()).copy(start = it)) } }
+        attrs["android:layout_marginTop"]?.let { v -> parseDim(v)?.let { modifier = modifier.copy(margin = (modifier.margin ?: PaddingSpec()).copy(top = it)) } }
+        attrs["android:layout_marginEnd"]?.let { v -> parseDim(v)?.let { modifier = modifier.copy(margin = (modifier.margin ?: PaddingSpec()).copy(end = it)) } }
+        attrs["android:layout_marginBottom"]?.let { v -> parseDim(v)?.let { modifier = modifier.copy(margin = (modifier.margin ?: PaddingSpec()).copy(bottom = it)) } }
 
         attrs["android:background"]?.let { bg ->
             modifier = if (bg.startsWith("#")) {
@@ -131,6 +204,13 @@ class XmlLayoutParser {
                 modifier.copy(background = bg)
             }
         }
+
+        attrs["android:backgroundTint"]?.let { tint ->
+            if (tint.startsWith("#")) modifier = modifier.copy(borderColor = normalizeColor(tint))
+        }
+
+        attrs["android:elevation"]?.let { e -> parseDim(e)?.let { modifier = modifier.copy(elevation = it) } }
+        attrs["android:alpha"]?.let { a -> a.toFloatOrNull()?.let { modifier = modifier.copy(alpha = it) } }
 
         attrs["android:text"]?.let { elementAttrs["text"] = it }
         attrs["android:hint"]?.let { elementAttrs["placeholder"] = it }
@@ -149,6 +229,25 @@ class XmlLayoutParser {
             if (style.contains("bold")) elementAttrs["fontWeight"] = "bold"
         }
 
+        attrs["android:fontFamily"]?.let { elementAttrs["fontFamily"] = it }
+        attrs["android:letterSpacing"]?.let { ls -> ls.toFloatOrNull()?.let { elementAttrs["letterSpacing"] = it.toString() } }
+        attrs["android:lineSpacingExtra"]?.let { ls -> parseDim(ls)?.let { elementAttrs["lineSpacing"] = it.toString() } }
+
+        attrs["android:maxLines"]?.let { elementAttrs["maxLines"] = it }
+        attrs["android:minLines"]?.let { elementAttrs["minLines"] = it }
+        attrs["android:lines"]?.let { elementAttrs["lines"] = it }
+        attrs["android:ellipsize"]?.let { elementAttrs["ellipsize"] = it }
+
+        attrs["android:src"]?.let { elementAttrs["src"] = it }
+        attrs["android:scaleType"]?.let { elementAttrs["scaleType"] = it }
+
+        attrs["android:checked"]?.let { elementAttrs["checked"] = it }
+        attrs["android:progress"]?.let { elementAttrs["progress"] = it }
+        attrs["android:max"]?.let { elementAttrs["max"] = it }
+        attrs["android:min"]?.let { elementAttrs["min"] = it }
+        attrs["android:enabled"]?.let { elementAttrs["enabled"] = it }
+        attrs["android:clickable"]?.let { elementAttrs["clickable"] = it }
+
         attrs["android:gravity"]?.let { gravity ->
             when {
                 gravity.contains("center") -> {
@@ -156,8 +255,28 @@ class XmlLayoutParser {
                     if (type == "Row") modifier = modifier.copy(verticalAlignment = "center")
                     if (type == "Box") modifier = modifier.copy(contentAlignment = "center")
                 }
+                gravity.contains("start") || gravity.contains("left") -> {
+                    if (type == "Column") modifier = modifier.copy(horizontalAlignment = "start")
+                    if (type == "Box") modifier = modifier.copy(contentAlignment = "topStart")
+                }
+                gravity.contains("end") || gravity.contains("right") -> {
+                    if (type == "Column") modifier = modifier.copy(horizontalAlignment = "end")
+                    if (type == "Box") modifier = modifier.copy(contentAlignment = "topEnd")
+                }
             }
         }
+
+        attrs["android:layout_gravity"]?.let { gravity ->
+            when {
+                gravity.contains("center") -> modifier = modifier.copy(align = "center")
+                gravity.contains("start") || gravity.contains("left") -> modifier = modifier.copy(align = "topStart")
+                gravity.contains("end") || gravity.contains("right") -> modifier = modifier.copy(align = "topEnd")
+                gravity.contains("bottom") -> modifier = modifier.copy(align = "bottomCenter")
+            }
+        }
+
+        attrs["android:layout_weight"]?.let { w -> w.toFloatOrNull()?.let { elementAttrs["weight"] = it.toString() } }
+        attrs["android:weightSum"]?.let { s -> s.toFloatOrNull()?.let { elementAttrs["weightSum"] = it.toString() } }
 
         // 记录白名单外的 android 属性（视为未支持并忽略）
         attrs.keys.filter { it.startsWith("android:") && it !in SUPPORTED_ANDROID_ATTRS }

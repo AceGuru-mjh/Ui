@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Preview
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Widgets
@@ -172,6 +173,12 @@ fun MainScreen(viewModel: FoundryViewModel) {
                         icon = { Icon(Icons.Filled.Accessibility, contentDescription = "A11y") },
                         label = { Text("A11y") }
                     )
+                    NavigationBarItem(
+                        selected = selectedTab == 6,
+                        onClick = { viewModel.selectTab(6) },
+                        icon = { Icon(Icons.Filled.Folder, contentDescription = "Project") },
+                        label = { Text("Project") }
+                    )
                 }
             }
         ) { paddingValues ->
@@ -187,6 +194,7 @@ fun MainScreen(viewModel: FoundryViewModel) {
                     3 -> InspectScreen(viewModel = viewModel)
                     4 -> CodeGeneratorScreen(viewModel = viewModel)
                     5 -> AccessibilityScreen(viewModel = viewModel)
+                    6 -> ProjectScreen(viewModel = viewModel)
                 }
             }
         }

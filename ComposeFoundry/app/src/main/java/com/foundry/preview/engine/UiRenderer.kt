@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -120,8 +121,15 @@ fun buildModifier(spec: UiModifierSpec): Modifier {
 
     modifier = applyPadding(modifier, spec.padding)
 
+    // margin 近似为外层留白（预览用，非精确布局）
+    spec.margin?.let { m -> modifier = applyPadding(modifier, m) }
+
     spec.elevation?.let { e ->
         modifier = modifier.shadow(e.dp)
+    }
+
+    spec.alpha?.let { a ->
+        modifier = modifier.alpha(a.coerceIn(0f, 1f))
     }
 
     spec.background?.let { bg ->

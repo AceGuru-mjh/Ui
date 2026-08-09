@@ -38,6 +38,44 @@ class AndroidUiXmlPluginTest {
     }
 
     @Test
+    fun `expanded material tags map to registered component types without downgrade`() = runBlocking {
+        val xml = """<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+            <com.google.android.material.button.MaterialButton android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="OK"/>
+            <com.google.android.material.switchMaterial.SwitchMaterial android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+            <com.google.android.material.chip.Chip android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tag"/>
+            <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content"/>
+            <ProgressBar android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+            <Spinner android:layout_width="match_parent" android:layout_height="wrap_content"/>
+            <RadioButton android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Pick"/>
+        </LinearLayout>"""
+        val result = plugin.parse(xmlArtifact(xml), PreviewContext())
+        val graph = (result as com.foundry.core.plugin.ParseResult.Success).graph
+        // 这些标签都应被识别，不应产生降级 WARNING
+        val downgrades = graph.diagnostics.filter {
+            it.severity == Severity.WARNING && "downgraded to Box" in it.message
+        }
+        assertTrue("no downgrade for expanded material tags, got: ${downgrades.map { it.message }}", downgrades.isEmpty())
+        val types = graph.root?.children?.map { it.type } ?: emptyList()
+        assertEquals(listOf("Button", "Switch", "Chip", "Divider", "ProgressIndicator", "Spinner", "RadioButton"), types)
+    }
+
+    @Test
+    fun `expanded attributes are mapped without ignored-attribute warnings`() = runBlocking {
+        val xml = """<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Hi" android:textSize="16sp" android:letterSpacing="0.05"
+            android:layout_margin="8dp" android:gravity="center" android:maxLines="2"/>"""
+        val result = plugin.parse(xmlArtifact(xml), PreviewContext())
+        val graph = (result as com.foundry.core.plugin.ParseResult.Success).graph
+        val ignored = graph.diagnostics.filter { it.severity == Severity.WARNING && "Ignored unsupported attribute" in it.message }
+        assertTrue("no ignored-attribute warnings for expanded attrs, got: ${ignored.map { it.message }}", ignored.isEmpty())
+        val mod = graph.root?.modifiers?.firstOrNull()
+        assertEquals(8f, mod?.margin?.all)
+        assertEquals("center", mod?.horizontalAlignment)
+    }
+
+    @Test
     fun `ignored unsupported attribute is reported`() = runBlocking {
         val xml = """<TextView xmlns:android="http://schemas.android.com/apk/res/android"
             android:layout_width="wrap_content" android:layout_height="wrap_content"
