@@ -18,3 +18,19 @@
 -keepclasseswithmembers class com.foundry.preview.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
+
+# Core platform modules (pure data model + plugin contract, no Android deps)
+-keep,includedescriptorclasses class com.foundry.core.uimodel.**$$serializer { *; }
+-keep,includedescriptorclasses class com.foundry.core.plugin.**$$serializer { *; }
+-keepclassmembers class com.foundry.core.uimodel.** {
+    *** Companion;
+}
+-keepclassmembers class com.foundry.core.plugin.** {
+    *** Companion;
+}
+
+# Jetpack Compose runtime: keep inline/Composable signatures used by remember delegates
+-keep class androidx.compose.runtime.** { *; }
+-dontwarn androidx.compose.runtime.**
+-keepattributes RuntimeVisibleAnnotations,AnnotationDefault
+
