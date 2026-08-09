@@ -46,4 +46,37 @@ class ProjectIndexerTest {
         assertEquals(0, index.files.size)
         assertEquals(0, index.previewableCount)
     }
+
+    @Test
+    fun `plain kotlin file without compose is not previewable`() {
+        val root = File(System.getProperty("java.io.tmpdir"), "foundry-proj-${UUID.randomUUID()}")
+        root.deleteOnExit()
+        File(root, "Util.kt").writeText(
+            """
+            fun greet(name: String): String = "hi $name"
+            class Helper { val x = 1 }
+            """.trimIndent()
+        )
+        val index = ProjectIndexer.index(root.absolutePath, readContentForDetection = true)
+        val util = index.files.first { it.name == "Util.kt" }
+        assertEquals(ArtifactKind.UNKNOWN_TEXT, util.kind)
+        assertTrue("plain .kt must not be previewable", !util.previewable)
+        assertEquals(0, index.previewableCount)
+    }
+
+    @Test
+    fun `composable kotlin file is previewable`() {
+        val root = File(System.getProperty("java.io.tmpdir"), "foundry-proj-${UUID.randomUUID()}")
+        root.deleteOnExit()
+        File(root, "Home.kt").writeText(
+            """
+            import androidx.compose.runtime.Composable
+            @Composable fun Home() { }
+            """.trimIndent()
+        )
+        val index = ProjectIndexer.index(root.absolutePath, readContentForDetection = true)
+        val home = index.files.first { it.name == "Home.kt" }
+        assertEquals(ArtifactKind.KOTLIN_COMPOSE, home.kind)
+        assertTrue("composable .kt is previewable", home.previewable)
+    }
 }

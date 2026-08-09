@@ -322,6 +322,22 @@ class ComposeSourceParser {
 
     // ---------------- 辅助 ----------------
 
+    /** Compose 命名颜色常量 → #AARRGGBB（原型阶段覆盖常用集合）。 */
+    private val NAMED_COLORS: Map<String, String> = mapOf(
+        "Black" to "#FF000000",
+        "DarkGray" to "#FF444444",
+        "Gray" to "#FF888888",
+        "LightGray" to "#FFCCCCCC",
+        "White" to "#FFFFFFFF",
+        "Red" to "#FFFF0000",
+        "Green" to "#FF00FF00",
+        "Blue" to "#FF0000FF",
+        "Yellow" to "#FFFFFF00",
+        "Cyan" to "#FF00FFFF",
+        "Magenta" to "#FFFF00FF",
+        "Transparent" to "#00000000"
+    )
+
     private fun mapComposableType(id: String): String? = when (id) {
         "Column" -> "Column"
         "Row" -> "Row"
@@ -360,8 +376,14 @@ class ComposeSourceParser {
             return if (hex.length == 6) "#FF$hex" else "#$hex"
         }
         if (s.startsWith("@")) return s // 资源引用原样保留，交给资源解析阶段
-        if (s.startsWith("Color.")) return fallback // 命名颜色暂不展开
+        if (s.startsWith("Color.")) return resolveNamedColor(s) // 展开命名颜色常量
         return fallback
+    }
+
+    /** 展开 Compose 常见命名颜色常量为 #AARRGGBB（原型阶段覆盖常用集合）。 */
+    private fun resolveNamedColor(expr: String): String? {
+        val name = expr.removePrefix("Color.").substringBefore('.').substringBefore('(').trim()
+        return NAMED_COLORS[name]
     }
 
     /** 规范化颜色字符串为 #AARRGGBB（与 XmlLayoutParser 同逻辑，本地副本避免跨文件耦合）。 */

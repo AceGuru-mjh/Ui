@@ -230,8 +230,11 @@ class XmlLayoutParser {
         }
 
         attrs["android:fontFamily"]?.let { elementAttrs["fontFamily"] = it }
+        // Android 的 letterSpacing 是 em 比例（相对于字号），这里原样保留数值并在渲染端当作相对字距使用
         attrs["android:letterSpacing"]?.let { ls -> ls.toFloatOrNull()?.let { elementAttrs["letterSpacing"] = it.toString() } }
         attrs["android:lineSpacingExtra"]?.let { ls -> parseDim(ls)?.let { elementAttrs["lineSpacing"] = it.toString() } }
+
+        attrs["android:onClick"]?.let { elementAttrs["onClick"] = it }
 
         attrs["android:maxLines"]?.let { elementAttrs["maxLines"] = it }
         attrs["android:minLines"]?.let { elementAttrs["minLines"] = it }

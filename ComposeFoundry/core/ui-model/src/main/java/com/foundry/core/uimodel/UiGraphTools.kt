@@ -50,14 +50,27 @@ private fun UiModifier.resolveResources(table: ResourceTable): UiModifier {
 
 // ---------------- 结构校验 ----------------
 
+/**
+ * 规范化节点类型的「单一事实来源」。
+ * 所有插件（XML / Compose / JSON DSL）产出的 UiNode 都应落在这份集合内，
+ * 渲染后端据此判断是否可渲染。放在 core 层避免各模块各自硬编码类型清单、
+ * 也能让 [UiGraph.validate] 在 core 内就完成类型合法性校验，无需反向依赖 app 渲染层。
+ */
+val CANONICAL_NODE_TYPES: Set<String> = setOf(
+    "column", "row", "box", "text", "button", "spacer", "card", "divider", "image",
+    "textfield", "scroll", "surface", "lazycolumn", "switch", "checkbox", "slider",
+    "progressindicator", "tabrow", "radiobutton", "spinner", "chip"
+)
+
 data class ValidationOptions(
     val maxDepth: Int = 64,
-    val allowedTypes: Set<String>? = null
+    val allowedTypes: Set<String>? = CANONICAL_NODE_TYPES
 )
 
 /**
  * 结构校验：空根、超深嵌套、未声明类型。
- * allowedTypes 为 null 表示不限制类型（类型合法性由具体渲染后端决定）。
+ * allowedTypes 默认采用 [CANONICAL_NODE_TYPES]（规范化类型集），使类型合法性
+ * 在 core 层即可判定；传 null 可关闭类型限制（交由具体渲染后端决定）。
  */
 fun UiGraph.validate(options: ValidationOptions = ValidationOptions()): List<Diagnostic> {
     val diags = mutableListOf<Diagnostic>()

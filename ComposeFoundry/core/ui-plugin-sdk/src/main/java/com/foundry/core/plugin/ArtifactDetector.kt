@@ -98,7 +98,8 @@ object ArtifactDetector {
         return when (ext) {
             "json", "androidui.json" -> ArtifactKind.JSON_DSL
             "xml" -> ArtifactKind.ANDROID_XML_LAYOUT
-            "kt", "kts" -> ArtifactKind.KOTLIN_COMPOSE
+            // kt/kts 仅代表 Kotlin 源码，是否为 Compose 需由内容探测判定；
+            // 这里返回 null，交由 detectFromContent 进一步区分（避免普通 .kt 被误判为可预览）
             "java" -> ArtifactKind.JAVA_VIEW
             "apk" -> ArtifactKind.APK
             "aab" -> ArtifactKind.AAB

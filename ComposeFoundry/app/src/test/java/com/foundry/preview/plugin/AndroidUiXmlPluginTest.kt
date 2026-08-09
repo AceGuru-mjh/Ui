@@ -89,6 +89,26 @@ class AndroidUiXmlPluginTest {
     }
 
     @Test
+    fun `onClick is captured as placeholder attribute`() = runBlocking {
+        val xml = """<Button xmlns:android="http://schemas.android.com/apk/res/android"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="OK" android:onClick="onOkClicked"/>"""
+        val result = plugin.parse(xmlArtifact(xml), PreviewContext())
+        val graph = (result as com.foundry.core.plugin.ParseResult.Success).graph
+        assertEquals("onOkClicked", graph.root?.attributes?.get("onClick"))
+    }
+
+    @Test
+    fun `letterSpacing is preserved as em ratio`() = runBlocking {
+        val xml = """<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Hi" android:letterSpacing="0.08"/>"""
+        val result = plugin.parse(xmlArtifact(xml), PreviewContext())
+        val graph = (result as com.foundry.core.plugin.ParseResult.Success).graph
+        assertEquals("0.08", graph.root?.attributes?.get("letterSpacing"))
+    }
+
+    @Test
     fun `resource reference is resolved when resource table provided`() = runBlocking {
         val xml = """<TextView xmlns:android="http://schemas.android.com/apk/res/android"
             android:layout_width="wrap_content" android:layout_height="wrap_content"

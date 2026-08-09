@@ -116,4 +116,15 @@ class ComposeSourceParserTest {
         assertNotNull(roots[0].attributes["fontSize"])
         assertTrue(roots[0].attributes["fontSize"]!!.startsWith("18"))
     }
+
+    @Test
+    fun `named color constant is expanded to hex`() {
+        val src = """
+            @Composable fun Home() {
+                Text("Hi", color = Color.Red)
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("#FFFF0000", roots[0].attributes["color"])
+    }
 }
