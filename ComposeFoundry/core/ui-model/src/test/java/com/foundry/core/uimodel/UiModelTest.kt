@@ -1,6 +1,7 @@
 package com.foundry.core.uimodel
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
@@ -19,8 +20,8 @@ class UiModelTest {
             UiValue.Expression("if(a) b else c"),
             UiValue.Unknown("?")
         )
-        val json = Json.encodeToString(values)
-        val back = Json.decodeFromString<List<UiValue>>(json)
+        val json = Json.encodeToString(serializer<List<UiValue>>(), values)
+        val back = Json.decodeFromString(serializer<List<UiValue>>(), json)
         assertEquals(values, back)
     }
 
@@ -47,8 +48,8 @@ class UiModelTest {
                 confidence = Confidence.HIGH
             )
         )
-        val json = Json.encodeToString(graph)
-        val back = Json.decodeFromString<UiGraph>(json)
+        val json = Json.encodeToString(UiGraph.serializer(), graph)
+        val back = Json.decodeFromString(UiGraph.serializer(), json)
         assertEquals(graph, back)
         assertNotNull(back.root)
     }

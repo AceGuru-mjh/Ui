@@ -1,5 +1,7 @@
 package com.foundry.core.plugin
 
+import com.foundry.core.uimodel.Confidence
+import com.foundry.core.uimodel.UiCapability
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse

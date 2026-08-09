@@ -111,7 +111,7 @@ object GradientParser {
     private fun parseLinear(str: String): GradientConfig {
         val content = str.removePrefix("linear(").removeSuffix(")")
         val parts = content.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        if (parts.isEmpty()) return GradientConfig()
+        if (parts.isEmpty()) return GradientConfig(type = GradientType.LINEAR)
 
         var angle = 0f
         val stops = mutableListOf<GradientStop>()
@@ -136,22 +136,33 @@ object GradientParser {
     private fun parseRadial(str: String): GradientConfig {
         val content = str.removePrefix("radial(").removeSuffix(")")
         val parts = content.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        if (parts.isEmpty()) return GradientConfig()
+        if (parts.isEmpty()) return GradientConfig(type = GradientType.RADIAL)
 
         var cx = 0.5f; var cy = 0.5f; var radius: Float? = null
         val stops = mutableListOf<GradientStop>()
-        for (part in parts) {
+        var i = 0
+        while (i < parts.size) {
+            val part = parts[i]
             when {
                 part.startsWith("center=") -> {
-                    val coords = part.removePrefix("center=").split(",")
-                    if (coords.size >= 2) {
-                        cx = coords[0].trim().toFloatOrNull() ?: 0.5f
-                        cy = coords[1].trim().toFloatOrNull() ?: 0.5f
+                    val xRaw = part.removePrefix("center=")
+                    // center coords are comma-separated, but the top-level split above
+                    // already separated "center=x" and "y" into two parts, so the y
+                    // coordinate is the next part when xRaw has no comma of its own.
+                    val xCoords = xRaw.split(",")
+                    if (xCoords.size >= 2) {
+                        cx = xCoords[0].toFloatOrNull() ?: 0.5f
+                        cy = xCoords[1].toFloatOrNull() ?: 0.5f
+                    } else if (i + 1 < parts.size) {
+                        cx = xRaw.toFloatOrNull() ?: 0.5f
+                        cy = parts[i + 1].toFloatOrNull() ?: 0.5f
+                        i++ // consume the y part
                     }
                 }
                 part.startsWith("radius=") -> radius = part.removePrefix("radius=").toFloatOrNull()
                 else -> parseStop(part)?.let { stops.add(it) }
             }
+            i++
         }
         return GradientConfig(type = GradientType.RADIAL, centerX = cx, centerY = cy, radius = radius, stops = stops)
     }
@@ -159,7 +170,7 @@ object GradientParser {
     private fun parseConic(str: String): GradientConfig {
         val content = str.removePrefix("conic(").removeSuffix(")")
         val parts = content.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        if (parts.isEmpty()) return GradientConfig()
+        if (parts.isEmpty()) return GradientConfig(type = GradientType.CONIC)
 
         var angle = 0f
         val stops = mutableListOf<GradientStop>()
