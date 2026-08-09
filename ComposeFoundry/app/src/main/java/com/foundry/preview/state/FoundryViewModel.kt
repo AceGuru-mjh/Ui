@@ -16,8 +16,11 @@ import com.foundry.core.plugin.ParseResult
 import com.foundry.core.plugin.PluginManager
 import com.foundry.core.plugin.PreviewContext
 import com.foundry.core.plugin.UiArtifact
+import com.foundry.core.uimodel.ResourceTable
 import com.foundry.core.uimodel.UiCapability
 import com.foundry.core.uimodel.UiGraph
+import com.foundry.preview.project.buildResourceTable
+import com.foundry.preview.project.findAndroidProjectRoot
 import com.foundry.preview.engine.DiagnosticsEngine
 import com.foundry.preview.plugin.toEngineDiagnostic
 import com.foundry.preview.plugin.toUiDocument
@@ -110,6 +113,9 @@ class FoundryViewModel : ViewModel() {
     private val _projectIndex = MutableStateFlow<ProjectIndex?>(null)
     val projectIndex: StateFlow<ProjectIndex?> = _projectIndex.asStateFlow()
 
+    // 任务：Android 资源引用解析——基于当前文件所在工程根扫描得到的资源表，供插件解析 @string/@color/@dimen。
+    private var _resourceTable: ResourceTable = ResourceTable()
+
     private val undoStack = mutableListOf<String>()
     private val redoStack = mutableListOf<String>()
 
@@ -199,7 +205,7 @@ class FoundryViewModel : ViewModel() {
                 _statusMessage.value = "No matching plugin"
                 return@launch
             }
-            when (val result = plugin.parse(artifact, PreviewContext())) {
+            when (val result = plugin.parse(artifact, PreviewContext(resourceTable = _resourceTable))) {
                 is ParseResult.Success -> {
                     _uiGraph.value = result.graph
                     result.diagnostics.forEach { engine.add(toEngineDiagnostic(it)) }
@@ -635,6 +641,9 @@ class FoundryViewModel : ViewModel() {
 
         // 统一走插件管线：选中 Android XML 插件解析为 UiGraph，再转回 DSL 渲染。
         viewModelScope.launch {
+            // 若能通过 uri 路径解析出工程根，则刷新资源表（供 @string/@color/@dimen 解析）
+            uri.path?.let { p -> findAndroidProjectRoot(File(p)) }
+                ?.let { _resourceTable = buildResourceTable(it) }
             val baseArtifact = UiArtifact(
                 id = "imported-xml",
                 uri = uri.toString(),
@@ -651,7 +660,7 @@ class FoundryViewModel : ViewModel() {
                 fallbackXmlDirect(xmlContent, "无匹配插件")
                 return@launch
             }
-            when (val result = plugin.parse(artifact, PreviewContext())) {
+            when (val result = plugin.parse(artifact, PreviewContext(resourceTable = _resourceTable))) {
                 is ParseResult.Success -> applyImportedGraph(result.graph, xmlContent)
                 is ParseResult.Partial -> applyImportedGraph(result.graph, xmlContent)
                 is ParseResult.Failed -> fallbackXmlDirect(xmlContent, "插件解析失败")
@@ -852,6 +861,8 @@ class FoundryViewModel : ViewModel() {
                     return@launch
                 }
             val ext = path.substringAfterLast('.', "").lowercase()
+            // 基于被加载文件所在工程根刷新资源表（向上找含 res/ 或 AndroidManifest.xml 的目录）
+            _resourceTable = buildResourceTable(findAndroidProjectRoot(File(path)) ?: File(path))
             val baseArtifact = UiArtifact(
                 id = "project:$path",
                 uri = path,
@@ -866,7 +877,7 @@ class FoundryViewModel : ViewModel() {
                 _statusMessage.value = "无匹配插件：${artifact.displayName}"
                 return@launch
             }
-            when (val result = p.parse(artifact, PreviewContext())) {
+            when (val result = p.parse(artifact, PreviewContext(resourceTable = _resourceTable))) {
                 is ParseResult.Success -> {
                     _uiGraph.value = result.graph
                     _document.value = toUiDocument(result.graph)

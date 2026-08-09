@@ -59,20 +59,27 @@ class AndroidUiComposePlugin : UiFormatPlugin {
             )
         }
 
-        val root = if (roots.size == 1) roots.first() else UiElement(type = "Box", children = roots)
-        val rootNode = toUiNode(root, "root")
+        // 多 @Composable / @Preview 入口：各自为独立预览根，并列渲染（不再折叠丢失）
+        val rootNodes = roots.map { (name, element) -> toUiNode(element, "root:$name") }
+        val root = if (rootNodes.size == 1) rootNodes.first() else UiNode(
+            id = "root",
+            type = "Box",
+            children = rootNodes,
+            confidence = Confidence.HIGH
+        )
+        val rootNode = root
 
         val parseDiags = issues.map { warn(it) }
         val multiRootInfo = if (roots.size > 1) {
-            listOf(
+            roots.keys.mapIndexed { idx, name ->
                 Diagnostic(
                     severity = Severity.INFO,
-                    code = "COMPOSE_MULTI_ROOT",
-                    message = "检测到 ${roots.size} 个 @Composable fun，预览取第一个，其余折叠进 Box 根",
+                    code = "COMPOSE_PREVIEW",
+                    message = "预览入口[$idx]: $name",
                     sourcePlugin = descriptor.id,
                     confidence = Confidence.MEDIUM
                 )
-            )
+            }
         } else emptyList()
 
         val resourceTable = context.resourceTable ?: ResourceTable()
