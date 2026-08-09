@@ -14,19 +14,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.foundry.preview.dsl.UiDocument
+import com.foundry.core.uimodel.UiGraph
 import com.foundry.preview.dsl.parseColor
 import com.foundry.preview.engine.DiagnosticsEngine
 import com.foundry.preview.engine.RenderElement
+import com.foundry.preview.plugin.toUiElement
 
 @Composable
 fun PreviewSurface(
-    document: UiDocument?,
+    graph: UiGraph?,
     deviceWidth: Int,
     deviceHeight: Int,
     diagnostics: DiagnosticsEngine
 ) {
-    if (document == null) {
+    val root = graph?.root
+    if (root == null) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -40,7 +42,13 @@ fun PreviewSurface(
         return
     }
 
-    val bgColor = parseColor(document.theme.backgroundColor)
+    // Stage 3: 渲染源切换为规范化 UiGraph（UiNode）。
+    // 现有 ComponentRenderer 仍消费 legacy dsl.UiElement，这里用 toUiElement 做薄适配，
+    // 待后续把 renderer 直接改为消费 UiNode 后即可移除该适配层。
+    val bgColor = graph?.themes?.firstOrNull()
+        ?.attributes?.get("backgroundColor")
+        ?.raw
+        ?.let { parseColor(it) } ?: parseColor("#FFF5F5F5")
 
     Box(
         modifier = Modifier
@@ -51,7 +59,7 @@ fun PreviewSurface(
         contentAlignment = Alignment.TopStart
     ) {
         RenderElement(
-            element = document.root,
+            element = toUiElement(root),
             diagnostics = diagnostics,
             path = "root"
         )

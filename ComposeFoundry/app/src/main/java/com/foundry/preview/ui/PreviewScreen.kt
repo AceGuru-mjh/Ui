@@ -45,7 +45,6 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalGraphicsApi::class)
 @Composable
 fun PreviewScreen(viewModel: FoundryViewModel) {
-    val document by viewModel.document.collectAsState()
     val diagnostics by viewModel.diagnostics.collectAsState()
     val renderMode by viewModel.renderMode.collectAsState()
     val xmlContent by viewModel.xmlContent.collectAsState()
@@ -203,7 +202,7 @@ fun PreviewScreen(viewModel: FoundryViewModel) {
                 when (renderMode) {
                     RenderMode.JSON_DSL -> {
                         PreviewSurface(
-                            document = document,
+                            graph = uiGraph,
                             deviceWidth = width,
                             deviceHeight = height,
                             diagnostics = diagnostics

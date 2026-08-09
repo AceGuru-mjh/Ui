@@ -58,7 +58,7 @@ reduced over time as renderers consume `UiGraph` directly.
 
 ## Known limitations (current)
 
-1. **`UiGraph` is not yet the direct render source** — it is round-tripped through `UiDocument`.
+1. **`UiGraph` is not yet the direct render source** — partially mitigated: `PreviewSurface` now receives the normalized `UiGraph` and feeds `ComponentRenderer` via a thin `toUiElement` adapter (see limitation #1 history). Next step is to make `ComponentRenderer` consume `UiNode` directly so the adapter can be removed.
 2. ~~**Plugin matching was lenient**~~ — now mitigated by `ArtifactDetector`, which fills `artifact.detectedKind` from content structure / MIME / extension before `PluginManager` selects (see limitation #2 history). Plugins still keep a lenient substring fallback for robustness.
 3. **XML preview is low-guarantee** — partially mitigated: `XmlLayoutParser` now emits `WARNING` diagnostics for downgraded tags and ignored attributes, and `AndroidUiXmlPlugin` resolves `@string` / `@color` / `@dimen` references when a `ResourceTable` is supplied via `PreviewContext.resourceTable` (otherwise it keeps the reference and emits an `INFO` diagnostic). Cross-file resource merging (project-level) is still future work.
 4. **No project-level preview** — a whole Android project (manifest, modules, resource merge) is not yet indexed.
@@ -79,10 +79,11 @@ reduced over time as renderers consume `UiGraph` directly.
 - XML diagnostics that explain downgrades and unresolved resources.
 - Resource resolution (`strings.xml`, `colors.xml`, `dimens.xml`, then theme/style/qalifiers).
 
-### Stage 3 — `UiGraph` as render source
+### Stage 3 — `UiGraph` as render source (in progress)
+- [done] Render entry (`PreviewSurface`) now takes the normalized `UiGraph` and feeds `ComponentRenderer` via a thin `toUiElement` adapter — `UiGraph` is the single render source; `UiDocument` is kept only for codegen / a11y / JSON serialization.
 - `UiGraphPreview(graph)` renderer consuming `UiNode` directly.
 - Migrate component mapping from `UiElement` to `UiNode`.
-- Reduce reliance on the `UiGraph → UiDocument` adapter.
+- Remove the `UiGraph → UiDocument → UiElement` adapter once renderers consume `UiNode`.
 
 ### Stage 4 — Project & advanced formats
 - `core:ui-project` + `plugin-android-project`: scan modules, manifest, resource merge, navigation graphs → `ProjectUiGraph`.
