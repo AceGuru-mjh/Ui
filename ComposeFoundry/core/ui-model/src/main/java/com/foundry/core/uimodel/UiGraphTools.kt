@@ -149,3 +149,19 @@ fun Set<UiCapability>.satisfies(required: Set<UiCapability>): Boolean = required
 /** 取可用能力与所需能力的交集（协商后真正可用的能力）。 */
 fun negotiateCapabilities(available: Set<UiCapability>, required: Set<UiCapability>): Set<UiCapability> =
     available.intersect(required)
+
+// ---------------- 颜色归一化 ----------------
+
+/**
+ * 把任意 #RGB / #RRGGBB / #AARRGGBB 颜色字符串规范化为 #AARRGGBB。
+ * 长度不符时原样返回（交给调用方判断是否合法）。
+ * 放在 core 层作为单一实现，避免各解析器各持一份副本。
+ */
+fun normalizeColor(color: String): String {
+    return when (color.length) {
+        4 -> "#FF${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}"
+        7 -> "#FF${color.substring(1)}"
+        9 -> color
+        else -> color
+    }
+}

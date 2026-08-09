@@ -80,4 +80,41 @@ class AndroidUiComposePluginTest {
         val result = plugin.parse(ktArtifact(src), PreviewContext())
         assertTrue(result is ParseResult.Failed)
     }
+
+    @Test
+    fun `border modifier expands to width and color`() = runBlocking {
+        val src = """
+            import androidx.compose.runtime.Composable
+            import androidx.compose.foundation.layout.Box
+            import androidx.compose.ui.Modifier
+            import androidx.compose.foundation.border
+            import androidx.compose.ui.graphics.Color
+
+            @Composable fun Home() {
+                Box(modifier = Modifier.border(2.dp, Color.Red)) { }
+            }
+        """
+        val result = plugin.parse(ktArtifact(src), PreviewContext())
+        val graph = (result as ParseResult.Success).graph
+        val mod = graph.root?.modifiers?.firstOrNull()
+        assertEquals(2f, mod?.borderWidth)
+        assertEquals("#FFFF0000", mod?.borderColor)
+    }
+
+    @Test
+    fun `align modifier expands to align value`() = runBlocking {
+        val src = """
+            import androidx.compose.runtime.Composable
+            import androidx.compose.foundation.layout.Box
+            import androidx.compose.ui.Modifier
+            import androidx.compose.foundation.layout.align
+
+            @Composable fun Home() {
+                Box(modifier = Modifier.align(Alignment.Center)) { }
+            }
+        """
+        val result = plugin.parse(ktArtifact(src), PreviewContext())
+        val graph = (result as ParseResult.Success).graph
+        assertEquals("Alignment.Center", graph.root?.modifiers?.firstOrNull()?.align)
+    }
 }

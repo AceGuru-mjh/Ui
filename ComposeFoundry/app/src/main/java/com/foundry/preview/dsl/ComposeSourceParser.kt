@@ -1,5 +1,7 @@
 package com.foundry.preview.dsl
 
+import com.foundry.core.uimodel.normalizeColor
+
 /**
  * 极简 Kotlin Composable 源码解析器（原型）。
  *
@@ -243,11 +245,20 @@ class ComposeSourceParser {
                 "width" -> mod.copy(width = dimDp(argsStr))
                 "height" -> mod.copy(height = dimDp(argsStr))
                 "background" -> mod.copy(background = parseColorArg(argsStr, mod.background))
-                "border" -> mod // 简化：保留已有
-                "clip" -> mod
-                "clickable" -> mod
-                "align" -> mod
-                "weight" -> mod
+                // border(width, color?)：取首个参数为边框宽度，若含 #颜色则取边框色
+                "border" -> {
+                    val parts = splitTopLevel(argsStr, ',')
+                    val width = dimDp(parts.firstOrNull() ?: "")
+                    val color = parseColorArg(argsStr, null)
+                    mod.copy(
+                        borderWidth = width ?: mod.borderWidth,
+                        borderColor = color ?: mod.borderColor
+                    )
+                }
+                "clip" -> mod // 原型阶段不展开 clip 形状（圆角等由 cornerRadius 单独支持）
+                "clickable" -> mod // 原型阶段仅静态结构，交互回调不展开
+                "align" -> mod.copy(align = argsStr.trim().trim('"'))
+                "weight" -> mod // weight 作用于 Row/Column 子项，由组件属性层处理，Modifier 层保留
                 "shadow" -> mod.copy(elevation = dimDp(argsStr))
                 "backgroundColor" -> mod.copy(background = parseColorArg(argsStr, mod.background))
                 else -> mod
@@ -384,19 +395,6 @@ class ComposeSourceParser {
     private fun resolveNamedColor(expr: String): String? {
         val name = expr.removePrefix("Color.").substringBefore('.').substringBefore('(').trim()
         return NAMED_COLORS[name]
-    }
-
-    /** 规范化颜色字符串为 #AARRGGBB（与 XmlLayoutParser 同逻辑，本地副本避免跨文件耦合）。 */
-    private fun normalizeColor(color: String): String {
-        return when (color.length) {
-            4 -> {
-                val r = color[1]; val g = color[2]; val b = color[3]
-                "#FF$r$r$g$g$b$b"
-            }
-            7 -> "#FF${color.substring(1)}"
-            9 -> color
-            else -> color
-        }
     }
 
     private fun dimDp(raw: String): Float? {

@@ -1,5 +1,7 @@
 package com.foundry.preview.dsl
 
+import com.foundry.core.uimodel.normalizeColor
+
 /**
  * Android XML layout 解析器。
  *
@@ -80,20 +82,25 @@ class XmlLayoutParser {
     )
 
     private fun mapTag(tag: String, attrs: Map<String, String>, issues: MutableList<String>): MutableNode {
+        // 已支持的标签白名单（无重复元素；集中维护，避免多处散落）。
+        // 不在白名单内的标签会在下方降级为 Box 并记录 issue。
         val supported = setOf(
+            // 原生布局 / 容器
             "LinearLayout", "FrameLayout", "RelativeLayout", "ConstraintLayout",
-            "TextView", "Button", "ImageButton", "ImageView", "EditText", "View",
-            "ScrollView", "HorizontalScrollView", "NestedScrollView",
-            "androidx.cardview.widget.CardView",
             "androidx.constraintlayout.widget.ConstraintLayout",
-            "androidx.recyclerview.widget.RecyclerView",
-            "androidx.viewpager2.widget.ViewPager2",
             "androidx.compose.ui.platform.ComposeView",
+            "ScrollView", "HorizontalScrollView", "NestedScrollView",
+            "androidx.swiperefreshlayout.widget.SwipeRefreshLayout",
+            "View", "Space", "Toolbar", "AppBarLayout", "CollapsingToolbarLayout",
+            "ViewPager", "WebView", "SurfaceView", "TextureView", "VideoView",
+            // 基础控件
+            "TextView", "Button", "ImageButton", "ImageView",
+            "EditText", "TextInputLayout", "TextInputEditText",
             "ProgressBar", "SeekBar", "CheckBox", "RadioButton", "RadioGroup",
             "Switch", "SwitchCompat", "ToggleButton", "Spinner",
-            "ViewPager", "WebView", "SurfaceView", "TextureView",
-            "Space", "Toolbar", "AppBarLayout", "CollapsingToolbarLayout",
-            "TextInputLayout", "TextInputEditText", "MaterialButton",
+            // Material 组件
+            "androidx.cardview.widget.CardView",
+            "MaterialButton",
             "com.google.android.material.button.MaterialButton",
             "com.google.android.material.textfield.TextInputLayout",
             "com.google.android.material.textview.MaterialTextView",
@@ -103,8 +110,9 @@ class XmlLayoutParser {
             "com.google.android.material.floatingactionbutton.FloatingActionButton",
             "com.google.android.material.tabs.TabLayout",
             "com.google.android.material.divider.MaterialDivider",
-            "androidx.swiperefreshlayout.widget.SwipeRefreshLayout",
-            "ImageView", "VideoView", "ProgressBar"
+            // 列表 / 分页
+            "androidx.recyclerview.widget.RecyclerView",
+            "androidx.viewpager2.widget.ViewPager2"
         )
         if (tag !in supported) {
             issues += "Unsupported tag '<$tag>' — downgraded to Box (rendering may differ)"
@@ -296,18 +304,6 @@ class XmlLayoutParser {
             value.endsWith("sp") -> value.removeSuffix("sp").toFloatOrNull()
             value.endsWith("dip") -> value.removeSuffix("dip").toFloatOrNull()
             else -> value.toFloatOrNull()
-        }
-    }
-
-    private fun normalizeColor(color: String): String {
-        return when (color.length) {
-            4 -> {
-                val r = color[1]; val g = color[2]; val b = color[3]
-                "#FF$r$r$g$g$b$b"
-            }
-            7 -> "#FF${color.substring(1)}"
-            9 -> color
-            else -> color
         }
     }
 
