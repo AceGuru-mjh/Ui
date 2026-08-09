@@ -60,7 +60,7 @@ reduced over time as renderers consume `UiGraph` directly.
 
 1. **`UiGraph` is not yet the direct render source** — it is round-tripped through `UiDocument`.
 2. ~~**Plugin matching was lenient**~~ — now mitigated by `ArtifactDetector`, which fills `artifact.detectedKind` from content structure / MIME / extension before `PluginManager` selects (see limitation #2 history). Plugins still keep a lenient substring fallback for robustness.
-3. **XML preview is low-guarantee** — unsupported tags/attributes are downgraded silently; resource references (`@string/...`) are not resolved yet.
+3. **XML preview is low-guarantee** — partially mitigated: `XmlLayoutParser` now emits `WARNING` diagnostics for downgraded tags and ignored attributes, and `AndroidUiXmlPlugin` resolves `@string` / `@color` / `@dimen` references when a `ResourceTable` is supplied via `PreviewContext.resourceTable` (otherwise it keeps the reference and emits an `INFO` diagnostic). Cross-file resource merging (project-level) is still future work.
 4. **No project-level preview** — a whole Android project (manifest, modules, resource merge) is not yet indexed.
 5. **core modules are Android libraries** — `ui-model` / `ui-plugin-sdk` do not depend on the Android framework and could become plain JVM / KMP modules for reuse in CLI / desktop / server.
 
