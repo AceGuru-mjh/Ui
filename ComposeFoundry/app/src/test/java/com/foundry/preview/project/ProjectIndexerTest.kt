@@ -53,7 +53,7 @@ class ProjectIndexerTest {
         root.deleteOnExit()
         File(root, "Util.kt").writeText(
             """
-            fun greet(name: String): String = "hi $name"
+            fun greet(name: String): String = "hi ${'$'}name"
             class Helper { val x = 1 }
             """.trimIndent()
         )
