@@ -91,8 +91,16 @@ class ComposeSourceParser {
                 if (j < n && code[j] == '(') {
                     val close = matchParen(code, j)
                     if (close > 0) {
-                        calls += code.substring(idStart, close + 1)
-                        i = close + 1
+                        // 纳入尾随 lambda：Name(args) { ... }，使子组件能被解析
+                        var end = close
+                        var k = close + 1
+                        while (k < n && code[k].isWhitespace()) k++
+                        if (k < n && code[k] == '{') {
+                            val lb = matchBrace(code, k)
+                            if (lb > 0) end = lb
+                        }
+                        calls += code.substring(idStart, end + 1)
+                        i = end + 1
                         continue
                     }
                 }
