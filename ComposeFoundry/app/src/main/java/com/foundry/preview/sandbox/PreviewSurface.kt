@@ -27,7 +27,8 @@ fun PreviewSurface(
     deviceHeight: Int,
     diagnostics: DiagnosticsEngine
 ) {
-    if (graph?.root == null) {
+    val root = graph?.root
+    if (root == null) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -44,7 +45,7 @@ fun PreviewSurface(
     // Stage 3: 渲染源切换为规范化 UiGraph（UiNode）。
     // 现有 ComponentRenderer 仍消费 legacy dsl.UiElement，这里用 toUiElement 做薄适配，
     // 待后续把 renderer 直接改为消费 UiNode 后即可移除该适配层。
-    val bgColor = graph.themes.firstOrNull()
+    val bgColor = graph?.themes?.firstOrNull()
         ?.attributes?.get("backgroundColor")
         ?.raw
         ?.let { parseColor(it) } ?: parseColor("#FFF5F5F5")
@@ -58,7 +59,7 @@ fun PreviewSurface(
         contentAlignment = Alignment.TopStart
     ) {
         RenderElement(
-            element = toUiElement(graph.root),
+            element = toUiElement(root),
             diagnostics = diagnostics,
             path = "root"
         )
