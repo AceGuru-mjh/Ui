@@ -16,6 +16,7 @@ a pluggable set of format parsers.
 | `UiArtifact` | `core:ui-plugin-sdk` | Unifies a file / folder / APK / snippet into one input abstraction. |
 | `UiFormatPlugin` | `core:ui-plugin-sdk` | Contract for a format: `canHandle(artifact)` → `PluginMatch`, `parse(artifact, context)` → `ParseResult`. |
 | `PluginDescriptor` | `core:ui-plugin-sdk` | Declares id, version, supported extensions/MIME, `capabilities`, `previewLevels`, `priority`. |
+| `ArtifactDetector` | `core:ui-plugin-sdk` | Infers `ArtifactKind` from content structure / MIME / extension / magic bytes before plugin matching. |
 | `PluginManager` | `core:ui-plugin-sdk` | Registers plugins; selects the best match by capability filter + score then priority (thread-safe). |
 | `UiGraph` | `core:ui-model` | Normalized UI tree: `UiNode` / `UiValue` / `UiModifier` / `Diagnostic` / `ThemeSpec`. |
 | `Diagnostic` | `core:ui-model` | Cross-format diagnostic with `severity`, `sourcePlugin`, `location`. |
@@ -29,6 +30,9 @@ a pluggable set of format parsers.
 ```
 input artifact
    │
+   ▼
+ArtifactDetector.detect(artifact)  ──▶  artifact.detectedKind
+   │  content structure / MIME / extension / magic bytes
    ▼
 PluginManager.selectFor(artifact, requires = [RENDER_INTERACTIVE])
    │  capability filter + score/priority
@@ -55,7 +59,7 @@ reduced over time as renderers consume `UiGraph` directly.
 ## Known limitations (current)
 
 1. **`UiGraph` is not yet the direct render source** — it is round-tripped through `UiDocument`.
-2. **Plugin matching is lenient** — JSON DSL matches on `"type"` + `"root"` substrings; XML matches on `xmlns:android` / `android:layout`. Both can misclassify ordinary files.
+2. ~~**Plugin matching was lenient**~~ — now mitigated by `ArtifactDetector`, which fills `artifact.detectedKind` from content structure / MIME / extension before `PluginManager` selects (see limitation #2 history). Plugins still keep a lenient substring fallback for robustness.
 3. **XML preview is low-guarantee** — unsupported tags/attributes are downgraded silently; resource references (`@string/...`) are not resolved yet.
 4. **No project-level preview** — a whole Android project (manifest, modules, resource merge) is not yet indexed.
 5. **core modules are Android libraries** — `ui-model` / `ui-plugin-sdk` do not depend on the Android framework and could become plain JVM / KMP modules for reuse in CLI / desktop / server.
