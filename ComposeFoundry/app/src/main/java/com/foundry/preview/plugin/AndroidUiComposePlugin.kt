@@ -3,6 +3,7 @@ package com.foundry.preview.plugin
 import com.foundry.core.plugin.*
 import com.foundry.core.uimodel.*
 import com.foundry.preview.dsl.ComposeSourceParser
+import com.foundry.preview.dsl.UiElement
 
 /**
  * 平台化后的第三个插件（Stage 4 预览原型）：把 Jetpack Compose Kotlin 源码（.kt）

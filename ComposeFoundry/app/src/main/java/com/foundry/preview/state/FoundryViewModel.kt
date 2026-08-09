@@ -3,10 +3,13 @@ package com.foundry.preview.state
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import java.io.File
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.foundry.preview.dsl.UiElement
 import com.foundry.preview.dsl.UiDocument
+import com.foundry.preview.project.ProjectIndex
+import com.foundry.preview.project.ProjectIndexer
 import com.foundry.core.plugin.ArtifactDetector
 import com.foundry.core.plugin.ArtifactKind
 import com.foundry.core.plugin.ParseResult
@@ -104,8 +107,8 @@ class FoundryViewModel : ViewModel() {
     private val _projectRootPath = MutableStateFlow("")
     val projectRootPath: StateFlow<String> = _projectRootPath.asStateFlow()
 
-    private val _projectIndex = MutableStateFlow<com.foundry.preview.project.ProjectIndex?>(null)
-    val projectIndex: StateFlow<com.foundry.preview.project.ProjectIndex?> = _projectIndex.asStateFlow()
+    private val _projectIndex = MutableStateFlow<ProjectIndex?>(null)
+    val projectIndex: StateFlow<ProjectIndex?> = _projectIndex.asStateFlow()
 
     private val undoStack = mutableListOf<String>()
     private val redoStack = mutableListOf<String>()
@@ -859,11 +862,11 @@ class FoundryViewModel : ViewModel() {
             val artifact = baseArtifact.copy(detectedKind = ArtifactDetector.detect(baseArtifact))
             val plugin = PluginManager.selectFor(artifact, requires = setOf(UiCapability.RENDER_INTERACTIVE))
                 ?: PluginManager.selectFor(artifact)
-            if (plugin == null) {
+            val p = plugin ?: run {
                 _statusMessage.value = "无匹配插件：${artifact.displayName}"
                 return@launch
             }
-            when (val result = plugin.parse(artifact, PreviewContext())) {
+            when (val result = p.parse(artifact, PreviewContext())) {
                 is ParseResult.Success -> {
                     _uiGraph.value = result.graph
                     _document.value = toUiDocument(result.graph)

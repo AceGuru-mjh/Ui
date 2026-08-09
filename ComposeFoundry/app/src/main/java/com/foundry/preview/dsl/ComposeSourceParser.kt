@@ -325,6 +325,19 @@ class ComposeSourceParser {
         return fallback
     }
 
+    /** 规范化颜色字符串为 #AARRGGBB（与 XmlLayoutParser 同逻辑，本地副本避免跨文件耦合）。 */
+    private fun normalizeColor(color: String): String {
+        return when (color.length) {
+            4 -> {
+                val r = color[1]; val g = color[2]; val b = color[3]
+                "#FF$r$r$g$g$b$b"
+            }
+            7 -> "#FF${color.substring(1)}"
+            9 -> color
+            else -> color
+        }
+    }
+
     private fun dimDp(raw: String): Float? {
         val s = raw.trim()
         return when {
