@@ -79,7 +79,9 @@ data class DeviceProfile(val name: String, val widthDp: Int, val heightDp: Int)
 data class PreviewContext(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val locale: String? = null,
-    val deviceProfile: DeviceProfile? = null
+    val deviceProfile: DeviceProfile? = null,
+    /** 外部资源表（strings/colors/dimens），供插件解析 @string/@color/@dimen 引用。 */
+    val resourceTable: ResourceTable? = null
 )
 
 interface UiFormatPlugin {

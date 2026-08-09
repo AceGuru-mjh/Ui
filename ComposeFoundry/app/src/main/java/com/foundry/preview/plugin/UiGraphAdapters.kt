@@ -20,6 +20,10 @@ import com.foundry.preview.engine.DiagnosticLevel as EngineLevel
 private fun inferUiValue(key: String, raw: String): UiValue {
     val lower = key.lowercase()
     return when {
+        // 资源引用优先：@string/@color/@dimen 等必须识别为 ResourceRef，
+        // 否则后续 resolveResources() 无法解析，且诊断无法发现未解析引用。
+        raw.startsWith("@") ->
+            UiValue.ResourceRef(raw)
         lower == "text" || lower.startsWith("content") || lower.endsWith("label") ->
             UiValue.Text(raw)
         lower.contains("color") || lower == "background" || lower == "tint" ->
@@ -33,8 +37,6 @@ private fun inferUiValue(key: String, raw: String): UiValue {
             UiValue.Bool(raw.toBoolean())
         raw.toDoubleOrNull() != null && lower != "text" ->
             UiValue.Number(raw.toDouble())
-        raw.startsWith("@") ->
-            UiValue.ResourceRef(raw)
         raw.startsWith("{") || raw.contains("if (") || raw.contains("?:") ->
             UiValue.Expression(raw)
         else -> UiValue.Unknown(raw)
