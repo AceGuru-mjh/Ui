@@ -14,6 +14,23 @@ import java.io.File
  * 纯 Kotlin（仅用 java.io.File），不依赖 Android，可在 CLI / 桌面 / 测试复用。
  * 当前不做跨文件资源合并（strings.xml 合并等），那是后续阶段。
  */
+/** 索引出的单个文件。 */
+data class IndexedFile(
+    val path: String,
+    val name: String,
+    val kind: ArtifactKind,
+    val previewable: Boolean,
+    val sizeBytes: Long
+)
+
+/** 项目索引结果。 */
+data class ProjectIndex(
+    val rootPath: String,
+    val files: List<IndexedFile>,
+    val previewableCount: Int,
+    val scannedDirs: Int
+)
+
 object ProjectIndexer {
 
     /** 可预览的工件种类（白名单）。 */
@@ -21,21 +38,6 @@ object ProjectIndexer {
         ArtifactKind.JSON_DSL,
         ArtifactKind.ANDROID_XML_LAYOUT,
         ArtifactKind.KOTLIN_COMPOSE
-    )
-
-    data class IndexedFile(
-        val path: String,
-        val name: String,
-        val kind: ArtifactKind,
-        val previewable: Boolean,
-        val sizeBytes: Long
-    )
-
-    data class ProjectIndex(
-        val rootPath: String,
-        val files: List<IndexedFile>,
-        val previewableCount: Int,
-        val scannedDirs: Int
     )
 
     /**
