@@ -1,16 +1,16 @@
 package com.foundry.preview.project
 
 import com.foundry.core.plugin.ArtifactKind
-import kotlin.io.createTempDir
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.util.UUID
 
 class ProjectIndexerTest {
 
     private fun tempProject(): File {
-        val root = File.createTempDir("foundry-proj")
+        val root = File(System.getProperty("java.io.tmpdir"), "foundry-proj-${UUID.randomUUID()}")
         root.deleteOnExit()
         File(root, "ui").mkdirs()
         File(root, "ui/MainActivity.kt").writeText(
