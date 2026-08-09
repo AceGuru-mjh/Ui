@@ -118,7 +118,7 @@ class ComposeSourceParser {
             if (kw == null) {
                 // 非控制流：作为普通语句推进（交给 extractTopLevelCalls 简化片段）
                 val next = nextStatement(code, i)
-                if (next != null) { result += next; i = next.second } else { i++ }
+                if (next != null) { result += next.first; i = next.second } else { i++ }
                 continue
             }
             // 找控制流后的 '('

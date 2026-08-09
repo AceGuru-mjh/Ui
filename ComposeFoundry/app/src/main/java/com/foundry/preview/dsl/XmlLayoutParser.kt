@@ -99,7 +99,7 @@ class XmlLayoutParser {
         // <merge> 根：展开其子节点，不引入额外容器
         if (innerRoot.type == "Box" && innerRoot.attributes["__mergeRoot"] == "true") {
             val merged = MutableNode(type = "Box")
-            merged.children.addAll(innerRoot.children)
+            innerRoot.children.forEach { merged.children.add(toMutable(it)) }
             visiting.remove(name)
             return merged
         }

@@ -3,19 +3,11 @@ package com.foundry.preview.project
 import com.foundry.core.uimodel.ResourceTable
 import java.io.File
 
-/**
- * 从 Android 资源目录扫描并构建 [ResourceTable]，用于解析 @string/@color/@dimen 引用。
- *
- * 解析 res/values/*.xml 中的 <string>/<color>/<dimen> 条目；对目录/文件缺失或
- * 解析失败完全容错（跳过并继续，绝不抛异常）。
- */
-
 private val VALUE_TAG_RE = Regex(
     "<(string|color|dimen)\\s+name=\"([^\"]+)\"\\s*>([\\s\\S]*?)</\\1>",
     RegexOption.IGNORE_CASE
 )
 
-/** 扫描 [start] 所在工程（向上查找含 res/ 或 AndroidManifest.xml 的根），构建资源表。 */
 fun buildResourceTable(start: File): ResourceTable {
     val root = findAndroidProjectRoot(start) ?: start
     val valuesDir = File(root, "res/values")
@@ -32,7 +24,6 @@ fun buildResourceTable(start: File): ResourceTable {
     return ResourceTable(strings = strings, colors = colors, dimens = dimens)
 }
 
-/** 向上回溯目录树（最多 6 层），找到含 res/ 或 AndroidManifest.xml 的工程根；找不到返回 null。 */
 fun findAndroidProjectRoot(start: File): File? {
     var dir = if (start.isDirectory) start else start.parentFile ?: return null
     repeat(6) {
