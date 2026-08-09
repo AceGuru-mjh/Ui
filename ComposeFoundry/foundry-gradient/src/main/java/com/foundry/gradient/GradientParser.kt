@@ -111,7 +111,7 @@ object GradientParser {
     private fun parseLinear(str: String): GradientConfig {
         val content = str.removePrefix("linear(").removeSuffix(")")
         val parts = content.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        if (parts.isEmpty()) return GradientConfig()
+        if (parts.isEmpty()) return GradientConfig(type = GradientType.LINEAR)
 
         var angle = 0f
         val stops = mutableListOf<GradientStop>()
@@ -136,7 +136,7 @@ object GradientParser {
     private fun parseRadial(str: String): GradientConfig {
         val content = str.removePrefix("radial(").removeSuffix(")")
         val parts = content.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        if (parts.isEmpty()) return GradientConfig()
+        if (parts.isEmpty()) return GradientConfig(type = GradientType.RADIAL)
 
         var cx = 0.5f; var cy = 0.5f; var radius: Float? = null
         val stops = mutableListOf<GradientStop>()
@@ -159,7 +159,7 @@ object GradientParser {
     private fun parseConic(str: String): GradientConfig {
         val content = str.removePrefix("conic(").removeSuffix(")")
         val parts = content.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        if (parts.isEmpty()) return GradientConfig()
+        if (parts.isEmpty()) return GradientConfig(type = GradientType.CONIC)
 
         var angle = 0f
         val stops = mutableListOf<GradientStop>()
