@@ -79,12 +79,12 @@ class AndroidUiXmlPluginTest {
     fun `ignored unsupported attribute is reported`() = runBlocking {
         val xml = """<TextView xmlns:android="http://schemas.android.com/apk/res/android"
             android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Hi" android:letterSpacing="0.1"/>"""
+            android:text="Hi" android:fooBarUnsupported="1"/>"""
         val result = plugin.parse(xmlArtifact(xml), PreviewContext())
         val graph = (result as com.foundry.core.plugin.ParseResult.Success).graph
         assertTrue(
-            "should report ignored attribute letterSpacing",
-            graph.diagnostics.any { "letterSpacing" in it.message }
+            "should report ignored attribute fooBarUnsupported",
+            graph.diagnostics.any { "fooBarUnsupported" in it.message }
         )
     }
 

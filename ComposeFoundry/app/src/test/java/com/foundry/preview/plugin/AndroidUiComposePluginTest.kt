@@ -59,7 +59,7 @@ class AndroidUiComposePluginTest {
         assertEquals(2, children.size)
         assertEquals("Text", children[0].type)
         assertEquals("Hello", children[0].attributes["text"]?.raw)
-        assertEquals("18", children[1].attributes["fontSize"]?.raw)
+        assertEquals("18.0", children[0].attributes["fontSize"]?.raw)
     }
 
     @Test

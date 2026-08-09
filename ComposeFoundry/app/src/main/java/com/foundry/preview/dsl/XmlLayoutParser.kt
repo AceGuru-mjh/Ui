@@ -253,6 +253,7 @@ class XmlLayoutParser {
                 gravity.contains("center") -> {
                     if (type == "Column") modifier = modifier.copy(horizontalAlignment = "center")
                     if (type == "Row") modifier = modifier.copy(verticalAlignment = "center")
+                    if (type == "Text") modifier = modifier.copy(horizontalAlignment = "center")
                     if (type == "Box") modifier = modifier.copy(contentAlignment = "center")
                 }
                 gravity.contains("start") || gravity.contains("left") -> {
