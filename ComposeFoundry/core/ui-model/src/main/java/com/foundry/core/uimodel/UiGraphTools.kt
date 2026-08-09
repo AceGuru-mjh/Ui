@@ -111,10 +111,16 @@ private fun validateNode(
 
 // ---------------- 归一化 ----------------
 
-/** 归一化：为缺少 id 的节点补齐稳定 id（基于路径），返回新图（不可变）。 */
-fun UiGraph.normalize(): UiGraph = copy(root = root?.normalize("root"))
+/** 归一化：为缺少 id 的节点补齐稳定 id（基于路径），返回新图（不可变）。
+ * 根节点若缺失 id 则固定为 "root"，其子节点依次为 "root_0"、"root_1" …。 */
+fun UiGraph.normalize(): UiGraph = copy(root = root?.normalizeRoot())
 
-private fun UiNode.normalize(idPrefix: String, index: Int = 0): UiNode {
+private fun UiNode.normalizeRoot(): UiNode {
+    val newId = if (id.isBlank()) "root" else id
+    return copy(id = newId, children = children.mapIndexed { i, c -> c.normalize(newId, i) })
+}
+
+private fun UiNode.normalize(idPrefix: String, index: Int): UiNode {
     val newId = if (id.isBlank()) "${idPrefix}_$index" else id
     return copy(
         id = newId,
