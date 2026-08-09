@@ -1,6 +1,7 @@
 package com.foundry.preview.project
 
 import com.foundry.core.plugin.ArtifactKind
+import kotlin.io.createTempDir
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
