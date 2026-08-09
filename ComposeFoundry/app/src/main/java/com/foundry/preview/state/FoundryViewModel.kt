@@ -4,13 +4,19 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
-import com.foundry.preview.dsl.ThemeConfig
+import androidx.lifecycle.viewModelScope
 import com.foundry.preview.dsl.UiElement
 import com.foundry.preview.dsl.UiDocument
-import com.foundry.preview.dsl.UiParser
-import com.foundry.preview.dsl.UiValidator
-import com.foundry.preview.dsl.XmlLayoutParser
+import com.foundry.core.plugin.ArtifactKind
+import com.foundry.core.plugin.ParseResult
+import com.foundry.core.plugin.PluginManager
+import com.foundry.core.plugin.PreviewContext
+import com.foundry.core.plugin.UiArtifact
+import com.foundry.core.uimodel.UiCapability
+import com.foundry.core.uimodel.UiGraph
 import com.foundry.preview.engine.DiagnosticsEngine
+import com.foundry.preview.plugin.toEngineDiagnostic
+import com.foundry.preview.plugin.toUiDocument
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +52,11 @@ import com.foundry.a11y.AccessibilityAuditor
 import com.foundry.a11y.A11yNode
 import com.foundry.a11y.A11yModifier
 
+enum class RenderMode {
+    JSON_DSL,
+    XML_DIRECT
+}
+
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "foundry_settings")
 
 class FoundryViewModel : ViewModel() {
@@ -76,6 +87,17 @@ class FoundryViewModel : ViewModel() {
 
     private val _selectedElementPath = MutableStateFlow<String?>(null)
     val selectedElementPath: StateFlow<String?> = _selectedElementPath.asStateFlow()
+
+    private val _renderMode = MutableStateFlow(RenderMode.JSON_DSL)
+    val renderMode: StateFlow<RenderMode> = _renderMode.asStateFlow()
+
+    private val _xmlContent = MutableStateFlow("")
+    val xmlContent: StateFlow<String> = _xmlContent.asStateFlow()
+
+    // 平台化核心：render() 经由 PluginManager 调用格式插件，产出的规范化 UiGraph
+    // 作为“单一可信中间表示”，供 UI 展示元数据、未来替换现有渲染路径。
+    private val _uiGraph = MutableStateFlow<UiGraph?>(null)
+    val uiGraph: StateFlow<UiGraph?> = _uiGraph.asStateFlow()
 
     private val undoStack = mutableListOf<String>()
     private val redoStack = mutableListOf<String>()
@@ -141,28 +163,56 @@ class FoundryViewModel : ViewModel() {
     }
 
     fun render() {
-        val engine = DiagnosticsEngine()
-        val parser = UiParser()
-        val validator = UiValidator()
-
-        parser.parse(_code.value).fold(
-            onSuccess = { doc ->
-                engine.addAll(validator.validate(doc))
-                if (!engine.hasErrors) {
-                    _document.value = doc
-                    _statusMessage.value = "Rendered successfully"
-                } else {
-                    _document.value = null
-                    _statusMessage.value = "Render blocked: ${engine.errorCount} error(s)"
-                }
-            },
-            onFailure = { e ->
-                engine.addError("Parse error: ${e.message}")
+        _renderMode.value = RenderMode.JSON_DSL
+        // 统一走插件管线：把当前代码作为工件交给 PluginManager，
+        // 由匹配的格式插件（JSON DSL）解析为规范化 UiGraph，再转回 UiDocument 渲染。
+        // 旧的直接 UiParser 路径已移除。
+        viewModelScope.launch {
+            val engine = DiagnosticsEngine()
+            val artifact = UiArtifact(
+                id = "current",
+                uri = "",
+                displayName = "current document",
+                content = _code.value,
+                detectedKind = ArtifactKind.JSON_DSL
+            )
+            val plugin = PluginManager.selectFor(
+                artifact,
+                requires = setOf(UiCapability.RENDER_INTERACTIVE)
+            )
+            if (plugin == null) {
+                engine.addError("No format plugin matched the current document")
                 _document.value = null
-                _statusMessage.value = "Parse failed"
+                _diagnostics.value = engine
+                _statusMessage.value = "No matching plugin"
+                return@launch
             }
-        )
-        _diagnostics.value = engine
+            when (val result = plugin.parse(artifact, PreviewContext())) {
+                is ParseResult.Success -> {
+                    _uiGraph.value = result.graph
+                    result.diagnostics.forEach { engine.add(toEngineDiagnostic(it)) }
+                    if (engine.hasErrors) {
+                        _document.value = null
+                        _statusMessage.value = "Render blocked: ${engine.errorCount} error(s)"
+                    } else {
+                        _document.value = toUiDocument(result.graph)
+                        _statusMessage.value = "Rendered successfully"
+                    }
+                }
+                is ParseResult.Partial -> {
+                    _uiGraph.value = result.graph
+                    result.diagnostics.forEach { engine.add(toEngineDiagnostic(it)) }
+                    _document.value = result.graph?.let { toUiDocument(it) }
+                    _statusMessage.value = "Partial render: ${engine.errorCount} error(s)"
+                }
+                is ParseResult.Failed -> {
+                    result.diagnostics.forEach { engine.add(toEngineDiagnostic(it)) }
+                    _document.value = null
+                    _statusMessage.value = "Plugin parse failed"
+                }
+            }
+            _diagnostics.value = engine
+        }
     }
 
     fun undo() {
@@ -560,31 +610,62 @@ class FoundryViewModel : ViewModel() {
     }
 
     fun importXmlFromUri(context: Context, uri: Uri) {
-        try {
-            val xmlContent = context.contentResolver.openInputStream(uri)
+        val xmlContent = try {
+            context.contentResolver.openInputStream(uri)
                 ?.bufferedReader()?.use { it.readText() }
-            if (xmlContent == null) {
-                _statusMessage.value = "Failed to read XML file"
-                return
-            }
-
-            val xmlParser = XmlLayoutParser()
-            xmlParser.parse(xmlContent).fold(
-                onSuccess = { doc ->
-                    undoStack.add(_code.value)
-                    redoStack.clear()
-                    val jsonString = prettyJson.encodeToString(doc)
-                    _code.value = jsonString
-                    render()
-                    _statusMessage.value = "XML layout imported and converted"
-                },
-                onFailure = { e ->
-                    _statusMessage.value = "XML import failed: ${e.message}"
-                }
-            )
         } catch (e: Exception) {
-            _statusMessage.value = "XML import failed: ${e.message}"
+            null
         }
+        if (xmlContent == null) {
+            _statusMessage.value = "Failed to read XML file"
+            return
+        }
+
+        // 统一走插件管线：选中 Android XML 插件解析为 UiGraph，再转回 DSL 渲染。
+        viewModelScope.launch {
+            val artifact = UiArtifact(
+                id = "imported-xml",
+                uri = uri.toString(),
+                displayName = "imported xml",
+                content = xmlContent,
+                detectedKind = ArtifactKind.ANDROID_XML_LAYOUT
+            )
+            val plugin = PluginManager.selectFor(
+                artifact,
+                requires = setOf(UiCapability.RENDER_INTERACTIVE)
+            )
+            if (plugin == null) {
+                fallbackXmlDirect(xmlContent, "无匹配插件")
+                return@launch
+            }
+            when (val result = plugin.parse(artifact, PreviewContext())) {
+                is ParseResult.Success -> applyImportedGraph(result.graph, xmlContent)
+                is ParseResult.Partial -> applyImportedGraph(result.graph, xmlContent)
+                is ParseResult.Failed -> fallbackXmlDirect(xmlContent, "插件解析失败")
+            }
+        }
+    }
+
+    private fun applyImportedGraph(graph: UiGraph?, xmlContent: String) {
+        val g = graph ?: run {
+            fallbackXmlDirect(xmlContent, "无图")
+            return
+        }
+        _uiGraph.value = g
+        val doc = toUiDocument(g)
+        val jsonString = prettyJson.encodeToString(doc)
+        undoStack.add(_code.value)
+        redoStack.clear()
+        _code.value = jsonString
+        _document.value = doc
+        _renderMode.value = RenderMode.JSON_DSL
+        _statusMessage.value = "XML imported via ${g.meta.parser}"
+    }
+
+    private fun fallbackXmlDirect(xmlContent: String, reason: String) {
+        _renderMode.value = RenderMode.XML_DIRECT
+        _xmlContent.value = xmlContent
+        _statusMessage.value = "XML 直接预览模式（$reason）"
     }
 
     fun exportJsonToUri(context: Context, uri: Uri) {

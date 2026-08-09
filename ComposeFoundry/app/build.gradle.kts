@@ -57,6 +57,9 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.foundation:foundation")
 
+    // 图片加载（替代 Image 占位符） ------------------
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
     // Core
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
@@ -81,10 +84,16 @@ dependencies {
     implementation(project(":foundry-codegen"))
     implementation(project(":foundry-a11y"))
 
+    // 平台核心层：规范化 UI 图 + 插件化格式系统
+    implementation(project(":core:ui-model"))
+    implementation(project(":core:ui-plugin-sdk"))
+
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     // Test
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }
