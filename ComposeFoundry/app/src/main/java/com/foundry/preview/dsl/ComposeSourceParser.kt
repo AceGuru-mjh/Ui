@@ -118,7 +118,9 @@ class ComposeSourceParser {
         val open = call.indexOf('(')
         if (open < 0) return null
         val id = call.substring(0, open).trim()
-        val argsPart = call.substring(open + 1, call.length - 1)
+        val close = matchParen(call, open)
+        // 仅取本调用自身的 (args) 部分，剥离尾随 lambda 与多余的括号
+        val argsPart = if (close > 0) call.substring(open + 1, close) else call.substring(open + 1)
 
         val type = mapComposableType(id)
         if (type == null) {
@@ -128,7 +130,15 @@ class ComposeSourceParser {
 
         val modifier = parseModifierChain(argsPart)
         val attributes = parseAttributes(id, argsPart)
-        val children = parseLambdaChildren(argsPart, issues, path)
+
+        // 提取尾随 lambda：Name(args) { ... }，与 args 分离后再递归解析
+        var lambdaStart = if (close > 0) close + 1 else call.length
+        while (lambdaStart < call.length && call[lambdaStart].isWhitespace()) lambdaStart++
+        val lambdaText = if (lambdaStart < call.length && call[lambdaStart] == '{') {
+            val lb = matchBrace(call, lambdaStart)
+            if (lb > 0) call.substring(lambdaStart, lb + 1) else ""
+        } else ""
+        val children = parseLambdaChildren(lambdaText, issues, path)
 
         return UiElement(type = resolvedType, modifier = modifier, attributes = attributes, children = children)
     }
