@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.foundry.preview.dsl.UiElement
 import com.foundry.preview.dsl.UiDocument
+import com.foundry.core.plugin.ArtifactDetector
 import com.foundry.core.plugin.ArtifactKind
 import com.foundry.core.plugin.ParseResult
 import com.foundry.core.plugin.PluginManager
@@ -169,13 +170,14 @@ class FoundryViewModel : ViewModel() {
         // 旧的直接 UiParser 路径已移除。
         viewModelScope.launch {
             val engine = DiagnosticsEngine()
-            val artifact = UiArtifact(
+            val baseArtifact = UiArtifact(
                 id = "current",
                 uri = "",
                 displayName = "current document",
                 content = _code.value,
-                detectedKind = ArtifactKind.JSON_DSL
+                extension = "androidui.json"
             )
+            val artifact = baseArtifact.copy(detectedKind = ArtifactDetector.detect(baseArtifact))
             val plugin = PluginManager.selectFor(
                 artifact,
                 requires = setOf(UiCapability.RENDER_INTERACTIVE)
@@ -623,13 +625,14 @@ class FoundryViewModel : ViewModel() {
 
         // 统一走插件管线：选中 Android XML 插件解析为 UiGraph，再转回 DSL 渲染。
         viewModelScope.launch {
-            val artifact = UiArtifact(
+            val baseArtifact = UiArtifact(
                 id = "imported-xml",
                 uri = uri.toString(),
                 displayName = "imported xml",
                 content = xmlContent,
-                detectedKind = ArtifactKind.ANDROID_XML_LAYOUT
+                extension = "xml"
             )
+            val artifact = baseArtifact.copy(detectedKind = ArtifactDetector.detect(baseArtifact))
             val plugin = PluginManager.selectFor(
                 artifact,
                 requires = setOf(UiCapability.RENDER_INTERACTIVE)
