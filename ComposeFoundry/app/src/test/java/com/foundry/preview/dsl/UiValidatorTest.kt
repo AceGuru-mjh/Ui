@@ -1,9 +1,11 @@
 package com.foundry.preview.dsl
 
 import com.foundry.preview.engine.DiagnosticLevel
+import com.foundry.preview.engine.initializeRenderers
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 /**
@@ -13,6 +15,12 @@ import org.junit.Test
 class UiValidatorTest {
 
     private val validator = UiValidator()
+
+    @Before
+    fun setUp() {
+        // 注册内置渲染器，使 UiValidator.SUPPORTED_TYPES 与运行时一致
+        initializeRenderers()
+    }
 
     private fun doc(root: UiElement): UiDocument {
         return UiDocument(root = root)
@@ -175,7 +183,7 @@ class UiValidatorTest {
                 UiElement(type = "row", children = listOf(
                     UiElement(type = "badtype")
                 ))
-            ]
+            )
         ))
         val diagnostics = validator.validate(d)
         val errors = diagnostics.filter { it.level == DiagnosticLevel.ERROR }
