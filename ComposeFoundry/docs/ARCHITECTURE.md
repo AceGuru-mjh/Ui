@@ -91,3 +91,30 @@ reduced over time as renderers consume `UiGraph` directly.
 - [prototype] **Compose code preview** — `AndroidUiComposePlugin` + `ComposeSourceParser` do static `@Composable` recognition → `UiGraph`. Sandboxed **execution** (to reflect runtime state / conditionals / loops) is still future work.
 - APK / AAB resource extraction and preview — not started.
 - ~~P2-1 core decoupling~~ — **done**: `core:ui-model` / `core:ui-plugin-sdk` are plain JVM modules.
+
+## Implementation notes (learned from industry tooling)
+
+### Compose source parser — current approach vs. recommended upgrade
+
+`ComposeSourceParser` is a **lightweight string/bracket scanner** (no Kotlin compiler, KMP-friendly,
+fast in unit tests). It works for the common declarative shapes but is inherently fragile: it cannot
+reason about Kotlin scoping, receivers, extension functions, or control flow.
+
+The robust, compiler-free alternative is **`kotlinx.ast`** (https://github.com/kotlinx/ast): it parses
+Kotlin into a language-agnostic AST using ANTLR4 + the official Kotlin grammar, **without the Kotlin
+compiler**. This would let the Compose plugin resolve call sites, receivers, and named arguments
+structurally instead of by bracket counting.
+
+> Caveat: `kotlinx.ast` is published via **Jitpack** (`com.github.kotlinx.ast:grammar-kotlin-parser-*`,
+versioned by commit hash) and its node model (`Klass` / `KlassDeclaration`) is declaration-oriented;
+call-expression traversal needs extra work. Adopting it as a dependency in `app` would require a
+reliable mirror and is deferred until the prototype is promoted to a dedicated `foundry-compose-parser`
+JVM module. Until then, `ComposeSourceParser` is kept as the pragmatic prototype with focused unit tests.
+
+### Core module maturity path
+
+`core:ui-model` and `core:ui-plugin-sdk` are now plain `java-library` + Kotlin/JVM modules (P2-1 done).
+The next maturity step toward reuse in CLI / desktop / server is to promote them to
+**Kotlin Multiplatform** using the official `com.android.kotlin.multiplatform.library` Gradle plugin,
+which adds an Android target to a KMP library module without re-introducing Android coupling into the
+shared source set. This keeps the JVM-only build as the default while enabling KMP consumers.

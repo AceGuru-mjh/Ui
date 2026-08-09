@@ -79,13 +79,13 @@ class ComposeSourceParser {
         var i = 0
         val n = code.length
         while (i < n) {
+            i = skipString(code, i)
+            if (i >= n) break
             val c = code[i]
             if (c.isLetter() && (c.isUpperCase() || code[i] == 'M' && code.startsWith("Modifier", i))) {
                 // 读取标识符
                 val idStart = i
                 while (i < n && (code[i].isLetterOrDigit() || code[i] == '_')) i++
-                val id = code.substring(idStart, i)
-                // 需要紧跟 '(' 才是调用
                 var j = i
                 while (j < n && code[j].isWhitespace()) j++
                 if (j < n && code[j] == '(') {
@@ -103,8 +103,16 @@ class ComposeSourceParser {
                         i = end + 1
                         continue
                     }
+                } else if (j < n && code[j] == '{') {
+                    // 无参调用 + 尾随 lambda：Name { ... }
+                    val lb = matchBrace(code, j)
+                    if (lb > 0) {
+                        calls += code.substring(idStart, lb + 1)
+                        i = lb + 1
+                        continue
+                    }
                 }
-                i = i // 不是调用，继续
+                // 不是调用，继续
             } else {
                 i++
             }
@@ -114,13 +122,24 @@ class ComposeSourceParser {
 
     /** 解析单个组件调用字符串，如 `Text("hi", modifier = Modifier.padding(8.dp))`。 */
     private fun parseCall(call: String, issues: MutableList<String>, path: String): UiElement? {
-        // 分离 标识符( 与 )
-        val open = call.indexOf('(')
-        if (open < 0) return null
-        val id = call.substring(0, open).trim()
-        val close = matchParen(call, open)
-        // 仅取本调用自身的 (args) 部分，剥离尾随 lambda 与多余的括号
-        val argsPart = if (close > 0) call.substring(open + 1, close) else call.substring(open + 1)
+        // 先取组件标识符：到首个空白 / '(' / '{' 为止（避免误吞内部子调用的 '('）
+        val idEnd = call.indexOfFirst { it.isWhitespace() || it == '(' || it == '{' }
+        val id = call.substring(0, if (idEnd < 0) call.length else idEnd).trim()
+        // 标识符后第一个非空白字符决定本调用是否带参数括号
+        var p = idEnd
+        while (p < call.length && call[p].isWhitespace()) p++
+        val open = if (p < call.length && call[p] == '(') p else -1
+        val argsPart: String
+        val lambdaStart: Int
+        if (open < 0) {
+            // 无参调用：Name { ... }，参数区为空，lambda 紧随标识符之后
+            argsPart = ""
+            lambdaStart = call.indexOf('{')
+        } else {
+            val close = matchParen(call, open)
+            argsPart = if (close > 0) call.substring(open + 1, close) else call.substring(open + 1)
+            lambdaStart = if (close > 0) close + 1 else call.length
+        }
 
         val type = mapComposableType(id)
         if (type == null) {
@@ -131,12 +150,12 @@ class ComposeSourceParser {
         val modifier = parseModifierChain(argsPart)
         val attributes = parseAttributes(id, argsPart)
 
-        // 提取尾随 lambda：Name(args) { ... }，与 args 分离后再递归解析
-        var lambdaStart = if (close > 0) close + 1 else call.length
-        while (lambdaStart < call.length && call[lambdaStart].isWhitespace()) lambdaStart++
-        val lambdaText = if (lambdaStart < call.length && call[lambdaStart] == '{') {
-            val lb = matchBrace(call, lambdaStart)
-            if (lb > 0) call.substring(lambdaStart, lb + 1) else ""
+        // 提取尾随 lambda：Name(args) { ... } 或 Name { ... }，与 args 分离后再递归解析
+        var ls = lambdaStart
+        while (ls < call.length && call[ls].isWhitespace()) ls++
+        val lambdaText = if (ls >= 0 && ls < call.length && call[ls] == '{') {
+            val lb = matchBrace(call, ls)
+            if (lb > 0) call.substring(ls, lb + 1) else ""
         } else ""
         val children = parseLambdaChildren(lambdaText, issues, path)
 
@@ -150,6 +169,8 @@ class ComposeSourceParser {
         var i = 0
         val n = args.length
         while (i < n) {
+            i = skipString(args, i)
+            if (i >= n) break
             when (args[i]) {
                 '(' -> depth++
                 ')' -> depth--
@@ -388,7 +409,7 @@ class ComposeSourceParser {
 
     private fun namedArg(args: String, name: String): String? {
         val parts = splitTopLevel(args, ',')
-        return parts.firstOrNull { it.trim().startsWith("$name=") }
+        return parts.firstOrNull { it.replace(" ", "").startsWith("$name=") }
             ?.substringAfter('=')?.trim()
     }
 
@@ -397,13 +418,22 @@ class ComposeSourceParser {
         return parts.joinToString(",")
     }
 
-    /** 顶层按分隔符拆分，忽略括号内/大括号内的嵌套。 */
+    /** 顶层按分隔符拆分，忽略括号内/大括号内/字符串内的嵌套。 */
     private fun splitTopLevel(s: String, sep: Char): List<String> {
         val out = mutableListOf<String>()
         var depthP = 0
         var depthB = 0
         var cur = StringBuilder()
-        for (ch in s) {
+        var i = 0
+        while (i < s.length) {
+            // 保留字符串字面量内容（如 Text("Hello")），仅借助 skipString 越过转义
+            if (s[i] == '"' || s[i] == '\'') {
+                val end = skipString(s, i)
+                cur.append(s.substring(i, end))
+                i = end
+                continue
+            }
+            val ch = s[i]
             when (ch) {
                 '(' -> { depthP++; cur.append(ch) }
                 ')' -> { depthP--; cur.append(ch) }
@@ -415,12 +445,13 @@ class ComposeSourceParser {
                 } else cur.append(ch)
                 else -> cur.append(ch)
             }
+            i++
         }
         if (cur.isNotBlank()) out += cur.toString()
         return out.map { it.trim() }.filter { it.isNotEmpty() }
     }
 
-    /** 移除注释与字符串字面量，避免误解析。 */
+    /** 仅移除注释，保留字符串字面量内容（供后续提取 Text 等文本）。 */
     private fun stripCommentsAndStrings(src: String): String {
         val sb = StringBuilder()
         var i = 0
@@ -431,17 +462,6 @@ class ComposeSourceParser {
                 src.startsWith("/*", i) -> {
                     val end = src.indexOf("*/", i)
                     i = if (end >= 0) end + 2 else n
-                }
-                src[i] == '"' || src[i] == '\'' -> {
-                    val q = src[i]
-                    sb.append(' ') // 用空格占位保持位置
-                    i++
-                    while (i < n && src[i] != q) {
-                        if (src[i] == '\\') i++ // 跳转义
-                        i++
-                    }
-                    if (i < n) i++ // 闭合引号
-                    sb.append(' ')
                 }
                 else -> { sb.append(src[i]); i++ }
             }
@@ -457,23 +477,45 @@ class ComposeSourceParser {
 
     private fun matchBrace(s: String, open: Int): Int {
         var depth = 0
-        for (k in open until s.length) {
+        var k = open
+        while (k < s.length) {
+            k = skipString(s, k)
+            if (k >= s.length) break
             when (s[k]) {
                 '{' -> depth++
                 '}' -> { depth--; if (depth == 0) return k }
             }
+            k++
         }
         return -1
     }
 
     private fun matchParen(s: String, open: Int): Int {
         var depth = 0
-        for (k in open until s.length) {
+        var k = open
+        while (k < s.length) {
+            k = skipString(s, k)
+            if (k >= s.length) break
             when (s[k]) {
                 '(' -> depth++
                 ')' -> { depth--; if (depth == 0) return k }
             }
+            k++
         }
         return -1
+    }
+
+    /** 跳过字符串字面量（含 \" 转义与 ' 字符字面量），返回字符串之后的下标。 */
+    private fun skipString(s: String, i: Int): Int {
+        val c = s[i]
+        if (c != '"' && c != '\'') return i
+        val q = c
+        var j = i + 1
+        while (j < s.length) {
+            if (s[j] == '\\') { j += 2; continue }
+            if (s[j] == q) return j + 1
+            j++
+        }
+        return s.length
     }
 }
