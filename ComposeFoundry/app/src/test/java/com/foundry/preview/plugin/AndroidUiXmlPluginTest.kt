@@ -141,4 +141,44 @@ class AndroidUiXmlPluginTest {
             graph.diagnostics.any { it.code == "XML_RESOURCE_UNRESOLVED" && "@string/missing" in it.message }
         )
     }
+
+    @Test
+    fun `RadioGroup defaults to Column and horizontal becomes Row`() = runBlocking {
+        val vertical = """<RadioGroup xmlns:android="http://schemas.android.com/apk/res/android"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"/>"""
+        val vGraph = (plugin.parse(xmlArtifact(vertical), PreviewContext()) as com.foundry.core.plugin.ParseResult.Success).graph
+        assertEquals("Column", vGraph.root?.type)
+
+        val horizontal = """<RadioGroup xmlns:android="http://schemas.android.com/apk/res/android"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:orientation="horizontal"/>"""
+        val hGraph = (plugin.parse(xmlArtifact(horizontal), PreviewContext()) as com.foundry.core.plugin.ParseResult.Success).graph
+        assertEquals("Row", hGraph.root?.type)
+    }
+
+    @Test
+    fun `visibility attribute is preserved for rendering decisions`() = runBlocking {
+        val xml = """<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Hi" android:visibility="gone"/>"""
+        val graph = (plugin.parse(xmlArtifact(xml), PreviewContext()) as com.foundry.core.plugin.ParseResult.Success).graph
+        assertEquals("gone", graph.root?.attributes?.get("visibility")?.raw)
+    }
+
+    @Test
+    fun `ConstraintLayout child constraint is approximated to align`() = runBlocking {
+        val xml = """<androidx.constraintlayout.widget.ConstraintLayout
+            xmlns:android="http://schemas.android.com/apk/res/android"
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent" android:layout_height="match_parent">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Hi"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"/>
+        </androidx.constraintlayout.widget.ConstraintLayout>"""
+        val graph = (plugin.parse(xmlArtifact(xml), PreviewContext()) as com.foundry.core.plugin.ParseResult.Success).graph
+        val child = graph.root?.children?.first()
+        assertEquals("Text", child?.type)
+        assertEquals("topStart", child?.modifiers?.firstOrNull()?.align)
+    }
 }

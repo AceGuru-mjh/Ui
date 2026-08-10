@@ -108,6 +108,9 @@ class ComposeSourceParser {
         while (i < n) {
             i = skipString(code, i)
             if (i >= n) break
+            // 跳过空白后再判定关键字（skipString 只跳过字符串字面量，不跳空白）
+            while (i < n && code[i].isWhitespace()) i++
+            if (i >= n) break
             // 命中 if / for / 已知列表遍历调用
             val kw = when {
                 code.startsWith("if", i) && (i + 2 >= n || !code[i + 2].isLetter()) -> "if"

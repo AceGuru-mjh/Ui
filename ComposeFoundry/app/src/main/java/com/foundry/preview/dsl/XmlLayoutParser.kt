@@ -226,7 +226,7 @@ class XmlLayoutParser {
             "ProgressBar" -> "ProgressIndicator"
             "CheckBox" -> "Checkbox"
             "RadioButton" -> "RadioButton"
-            "RadioGroup" -> "Column"
+            "RadioGroup" -> if ((attrs["android:orientation"] ?: "vertical") == "horizontal") "Row" else "Column"
             "Switch" -> "Switch"
             "SwitchCompat" -> "Switch"
             "com.google.android.material.switchMaterial.SwitchMaterial" -> "Switch"
@@ -323,6 +323,13 @@ class XmlLayoutParser {
         attrs["android:lineSpacingExtra"]?.let { ls -> parseDim(ls)?.let { elementAttrs["lineSpacing"] = it.toString() } }
 
         attrs["android:onClick"]?.let { elementAttrs["onClick"] = it }
+
+        // 可见性：gone 在渲染端应跳过/折叠，invisible 保留占位，visible 为默认
+        attrs["android:visibility"]?.let { elementAttrs["visibility"] = it }
+
+        // ConstraintLayout 偏置（bias）：提取供更精确的对齐还原（align 已由 applyConstraintAlign 推导）
+        attrs["app:layout_constraintHorizontal_bias"]?.let { elementAttrs["constraintBiasHorizontal"] = it }
+        attrs["app:layout_constraintVertical_bias"]?.let { elementAttrs["constraintBiasVertical"] = it }
 
         attrs["android:maxLines"]?.let { elementAttrs["maxLines"] = it }
         attrs["android:minLines"]?.let { elementAttrs["minLines"] = it }

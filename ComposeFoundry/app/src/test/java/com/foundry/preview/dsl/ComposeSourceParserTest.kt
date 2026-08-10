@@ -127,4 +127,76 @@ class ComposeSourceParserTest {
         val (roots, _) = parseOrThrow(src)
         assertEquals("#FFFF0000", roots.values.first().attributes["color"])
     }
+
+    @Test
+    fun `if control flow keeps only the taken branch`() {
+        val src = """
+            @Composable fun Home() {
+                Column {
+                    if (true) {
+                        Text("A")
+                    } else {
+                        Text("B")
+                    }
+                }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        val column = roots.values.first()
+        val children = column.children
+        assertEquals(1, children.size)
+        assertEquals("A", children[0].attributes["text"])
+    }
+
+    @Test
+    fun `if control flow with false condition takes else branch`() {
+        val src = """
+            @Composable fun Home() {
+                Column {
+                    if (false) {
+                        Text("A")
+                    } else {
+                        Text("B")
+                    }
+                }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        val column = roots.values.first()
+        assertEquals(1, column.children.size)
+        assertEquals("B", column.children[0].attributes["text"])
+    }
+
+    @Test
+    fun `for loop over literal list is statically expanded`() {
+        val src = """
+            @Composable fun Home() {
+                Column {
+                    for (i in listOf(1, 2, 3)) {
+                        Text("item")
+                    }
+                }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        val column = roots.values.first()
+        assertEquals(3, column.children.size)
+        column.children.forEach { assertEquals("Text", it.type) }
+    }
+
+    @Test
+    fun `multiple composable functions produce multiple roots`() {
+        val src = """
+            @Composable fun ScreenA() {
+                Text("a")
+            }
+            @Composable fun ScreenB() {
+                Text("b")
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals(2, roots.size)
+        assertTrue(roots.containsKey("ScreenA"))
+        assertTrue(roots.containsKey("ScreenB"))
+    }
 }
