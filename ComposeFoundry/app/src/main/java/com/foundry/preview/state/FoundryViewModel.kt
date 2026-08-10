@@ -756,12 +756,12 @@ class FoundryViewModel : ViewModel() {
         _installedPlugins.value = PluginManager.all().map { it.descriptor }
     }
 
-    /** 完整流程：下载（带缓存）→ SHA-256 校验 → DexClassLoader 加载 → 热注册。 */
+    /** 完整流程：多源测速下载（带缓存 + 进度）→ SHA-256 校验 → DexClassLoader 加载 → 热注册。 */
     fun installPlugin(context: Context, manifest: RemotePluginManifest) {
         viewModelScope.launch(Dispatchers.IO) {
             _installingPluginIds.value = _installingPluginIds.value + manifest.id
             try {
-                val file = PluginDownloader.download(context, manifest)
+                val file = PluginDownloader.downloadSmart(context, manifest)
                 DynamicPluginManager.install(context, manifest, file)
                 refreshInstalledPlugins()
                 _statusMessage.value = "已安装插件 ${manifest.displayName} v${manifest.version}"
@@ -769,6 +769,16 @@ class FoundryViewModel : ViewModel() {
                 _statusMessage.value = "插件安装失败: ${e.message}"
             } finally {
                 _installingPluginIds.value = _installingPluginIds.value - manifest.id
+            }
+        }
+    }
+
+    /** 卸载插件：触发 onDestroy 生命周期清理 + 删除本地 .dex + 从注册中心移除。 */
+    fun uninstallPlugin(context: Context, id: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (DynamicPluginManager.uninstall(context, id)) {
+                refreshInstalledPlugins()
+                _statusMessage.value = "已卸载插件 $id（重启应用可彻底释放内存）"
             }
         }
     }

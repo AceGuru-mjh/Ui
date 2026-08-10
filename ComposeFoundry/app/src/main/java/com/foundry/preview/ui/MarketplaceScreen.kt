@@ -1,6 +1,5 @@
 package com.foundry.preview.ui
 
-import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -15,8 +14,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,8 +30,8 @@ import com.foundry.core.plugin.RemotePluginManifest
 import com.foundry.preview.state.FoundryViewModel
 
 /**
- * 插件市场（下载中心）：展示云端仓库索引中的可用插件，支持按需下载/热更新，
- * 并列出当前已注册的插件（内置 + 动态加载）。对应文章第一、二节的“动态插件市场”。
+ * 插件市场（下载中心）：展示云端仓库索引中的可用插件，支持按需下载/热更新/卸载，
+ * 并列出当前已注册的插件（内置 + 动态加载）。对应文章第一、二节的"动态插件市场"。
  */
 @Composable
 fun MarketplaceScreen(viewModel: FoundryViewModel) {
@@ -61,8 +62,13 @@ fun MarketplaceScreen(viewModel: FoundryViewModel) {
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                "主程序仅保留核心，UI 库/解析器/渲染器按需从云端下载并热加载。",
+                "主程序仅保留核心，UI 库/解析器/渲染器按需从云端多源镜像下载并热加载。",
                 style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                "插件更新后建议重启应用以彻底释放内存。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
             )
             Spacer(Modifier.height(12.dp))
         }
@@ -85,7 +91,18 @@ fun MarketplaceScreen(viewModel: FoundryViewModel) {
             Text("已注册插件（内置 + 动态加载）", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
         }
-        items(installed) { desc -> InstalledRow(desc) }
+        items(installed) { desc ->
+            InstalledRow(
+                desc = desc,
+                // 内置插件（以 com.foundry.plugin. 开头）不支持卸载
+                canUninstall = desc.id.startsWith("local.") || desc.id !in setOf(
+                    "com.foundry.plugin.json",
+                    "com.foundry.plugin.xml",
+                    "com.foundry.plugin.compose.source"
+                ),
+                onUninstall = { viewModel.uninstallPlugin(context, desc.id) }
+            )
+        }
     }
 }
 
@@ -111,6 +128,9 @@ private fun PluginCard(
         Column(modifier = Modifier.padding(16.dp)) {
             Text(manifest.displayName, style = MaterialTheme.typography.titleMedium)
             Text("v${manifest.version}  •  ${manifest.id}", style = MaterialTheme.typography.bodySmall)
+            manifest.minSdk?.let { min ->
+                Text("< API $min 不可用", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
             if (!manifest.description.isNullOrBlank()) {
                 Spacer(Modifier.height(4.dp))
                 Text(manifest.description, style = MaterialTheme.typography.bodySmall)
@@ -124,17 +144,31 @@ private fun PluginCard(
 }
 
 @Composable
-private fun InstalledRow(desc: PluginDescriptor) {
+private fun InstalledRow(
+    desc: PluginDescriptor,
+    canUninstall: Boolean,
+    onUninstall: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp)
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                "• ${desc.displayName}  v${desc.version}  (${desc.id})",
-                style = MaterialTheme.typography.bodySmall
-            )
+        Text(
+            "• ${desc.displayName}  v${desc.version}  (${desc.id})",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.weight(1f)
+        )
+        if (canUninstall) {
+            OutlinedButton(
+                onClick = onUninstall,
+                contentPadding = ButtonDefaults.TextButtonContentPadding,
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Text("卸载", style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

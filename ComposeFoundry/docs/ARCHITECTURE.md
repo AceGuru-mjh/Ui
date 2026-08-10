@@ -65,21 +65,29 @@ loads plugins at runtime from the app's private storage.
 
 | Type | Module | Responsibility |
 |------|--------|----------------|
-| `RemotePluginManifest` | `core:ui-plugin-sdk` | Cloud plugin declaration: `id` / `version` / `downloadUrl` / `sha256` / `entryClass` (+ `minCoreVersion` / `minSdk` / `signature`). Pure, serializable, no Android dep — shared with plugins so they resolve `UiFormatPlugin` inside their own `ClassLoader`. |
+| `RemotePluginManifest` | `core:ui-plugin-sdk` | Cloud plugin declaration: `id` / `version` / `sha256` / `entryClass` + `mirrors: List<MirrorNode>` (multi-source) + `minCoreVersion` / `minSdk` / `signature`. Pure, serializable, no Android dep — shared so plugins see `UiFormatPlugin` inside their own `ClassLoader`. |
+| `MirrorNode` / `MirrorType` | `core:ui-plugin-sdk` | Multi-source mirror node: `url` / `region` / `type` (`SERVER`, `GITHUB_RELEASE`, `CDN`, `IPFS`, `LAN_PEER`) / `priority`. |
+| `CORE_VERSION` | `core:ui-plugin-sdk` | Current plugin-sdk version (semver), enforced by `DynamicPluginManager` as min-core capability check. |
 | `PluginRepositoryIndex` | `core:ui-plugin-sdk` | List of available `RemotePluginManifest` + repository metadata. |
 | `PluginValidator` | `core:ui-plugin-sdk` | SHA-256 integrity check (pure JVM) before loading — prevents code injection. |
-| `DynamicPluginManager` | `app` | `DexClassLoader` load from internal storage → reflect `entryClass` → register into `PluginManager`. Hot-updates same-id plugins. |
-| `PluginDownloader` | `app` | `HttpURLConnection` download to `filesDir/plugins/<id>/<id>.dex` with SHA-256 cache hit. |
+| `DynamicPluginManager` | `app` | `DexClassLoader` load from internal storage → environment check (minSdk / minCoreVersion) → reflect `entryClass` → register into `PluginManager`. Hot-updates same-id plugins; `uninstall(id)` calls `onDestroy()` lifecycle and deletes local `.dex`. |
+| `PluginDownloader` | `app` | Multi-source smart download: concurrent HEAD probe (Racing) on all `mirrors` → pick fastest → failover on error. Progress callback for UI progress bar. SHA-256 cache-hit. |
 | `PluginRepositoryProvider` | `app` | Loads `PluginRepositoryIndex` (remote URL preferred, bundled `assets/plugin-repository.json` fallback). |
-| Marketplace UI | `app` | "Market" tab (index 7): browse repo, install/update on demand, list registered plugins. |
+| Marketplace UI | `app` | "Market" tab (index 7): browse repo with multi-mirror info / minSdk warning, install/update/uninstall on demand, list registered plugins. |
 
 Security model (per Android `DexClassLoader` docs + architecture review):
 - Plugins are **only** loaded from app-private internal storage (`filesDir` / `codeCacheDir`),
   never external storage.
 - SHA-256 is verified before every load.
+- **`minSdk` and `minCoreVersion` are enforced before ClassLoader creation** (P0 fix — prevents
+  `VerifyError`/crash on incompatible devices).
 - Plugins share the app `ClassLoader` (so they see `core:ui-plugin-sdk` contracts) while their
   own dependencies live in an isolated `DexClassLoader` sandbox (no dependency hell).
 - `skipShaCheck` exists only for local-dev loading and must stay `false` in production.
+- `UiFormatPlugin.onDestroy()` lifecycle hook lets plugins clean up static caches/Hooks to
+  assist ClassLoader GC after hot-update.
+- Multi-source mirrors (server + GitHub Release + CDN jsDelivr) with concurrent probing and
+  failover eliminate single-point-of-failure.
 
 ## Known limitations (current)
 
