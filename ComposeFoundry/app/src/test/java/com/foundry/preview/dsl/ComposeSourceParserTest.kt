@@ -34,7 +34,7 @@ class ComposeSourceParserTest {
         """
         val (roots, issues) = parseOrThrow(src)
         assertEquals(1, roots.size)
-        assertEquals("Column", roots[0].type)
+        assertEquals("Column", roots.values.first().type)
         assertTrue(issues.isEmpty())
     }
 
@@ -49,7 +49,7 @@ class ComposeSourceParserTest {
             }
         """
         val (roots, _) = parseOrThrow(src)
-        val children = roots[0].children
+        val children = roots.values.first().children
         assertEquals(2, children.size)
         assertEquals("Text", children[0].type)
         assertEquals("Hello", children[0].attributes["text"])
@@ -64,7 +64,7 @@ class ComposeSourceParserTest {
             }
         """
         val (roots, _) = parseOrThrow(src)
-        val mod = roots[0].modifier
+        val mod = roots.values.first().modifier
         assertTrue(mod.fillMaxWidth)
         assertEquals(16f, mod.padding?.all)
     }
@@ -82,7 +82,7 @@ class ComposeSourceParserTest {
             }
         """
         val (roots, _) = parseOrThrow(src)
-        val row = roots[0].children.first { it.type == "Row" }
+        val row = roots.values.first().children.first { it.type == "Row" }
         assertEquals(2, row.children.size)
         assertEquals("A", row.children[0].attributes["text"])
     }
@@ -93,7 +93,7 @@ class ComposeSourceParserTest {
             @Composable fun Weird() { MyCustomWidget(label = "x") }
         """
         val (roots, issues) = parseOrThrow(src)
-        assertEquals("Box", roots[0].type)
+        assertEquals("Box", roots.values.first().type)
         assertTrue(issues.any { "MyCustomWidget" in it })
     }
 
@@ -113,8 +113,8 @@ class ComposeSourceParserTest {
             }
         """
         val (roots, _) = parseOrThrow(src)
-        assertNotNull(roots[0].attributes["fontSize"])
-        assertTrue(roots[0].attributes["fontSize"]!!.startsWith("18"))
+        assertNotNull(roots.values.first().attributes["fontSize"])
+        assertTrue(roots.values.first().attributes["fontSize"]!!.startsWith("18"))
     }
 
     @Test
@@ -125,6 +125,6 @@ class ComposeSourceParserTest {
             }
         """
         val (roots, _) = parseOrThrow(src)
-        assertEquals("#FFFF0000", roots[0].attributes["color"])
+        assertEquals("#FFFF0000", roots.values.first().attributes["color"])
     }
 }
