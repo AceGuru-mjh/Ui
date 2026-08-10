@@ -1,0 +1,21 @@
+feat(stage4): broaden Android UI preview coverage
+
+Renderers (new):
+- NavigationBar (Material3 bottom nav / BottomNavigation / BottomAppBar)
+- AlertDialog (title/body/confirm+dismiss)
+- Badge (dot or numbered)
+- RuntimeView placeholder for WebView/VideoView/SurfaceView/TextureView
+  (avoids red Unknown box; shows clear preview-unavailable notice)
+
+Parser mappings:
+- ComposeSourceParser: NavigationBar/BottomNavigation/BottomAppBar -> NavigationBar;
+  AlertDialog/Dialog -> AlertDialog; Badge -> Badge;
+  WebView/VideoView/AndroidView -> RuntimeView (with runtimeKind attr)
+- XmlLayoutParser: WebView/VideoView/SurfaceView/TextureView -> RuntimeView
+- Fix stripCommentsAndStrings to skip string literals so URLs like
+  "https://..." are no longer truncated as line comments
+
+Tests:
+- ComposeSourceParser: nav/alert/badge/webview/videoview mappings
+- AndroidUiXmlPlugin: runtime view -> RuntimeView placeholder
+- RendererRegistry: all 25 built-in renderers registered (no Unknown box)

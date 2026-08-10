@@ -28,4 +28,8 @@ fun initializeRenderers() {
     ComponentRegistry.register(RadioButtonRenderer())
     ComponentRegistry.register(SpinnerRenderer())
     ComponentRegistry.register(ChipRenderer())
+    ComponentRegistry.register(NavigationBarRenderer())
+    ComponentRegistry.register(AlertDialogRenderer())
+    ComponentRegistry.register(BadgeRenderer())
+    ComponentRegistry.register(RuntimeViewRenderer())
 }

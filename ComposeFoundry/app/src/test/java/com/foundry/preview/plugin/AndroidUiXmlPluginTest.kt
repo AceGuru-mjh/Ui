@@ -257,4 +257,15 @@ class AndroidUiXmlPluginTest {
         assertEquals(1, visibleChildren.size)
         assertEquals("Visible", visibleChildren.first().attributes["text"])
     }
+
+    @Test
+    fun `runtime views map to RuntimeView placeholder`() = runBlocking {
+        val xml = """<WebView xmlns:android="http://schemas.android.com/apk/res/android"
+            android:layout_width="match_parent" android:layout_height="match_parent"/>"""
+        val graph = (plugin.parse(xmlArtifact(xml), PreviewContext()) as com.foundry.core.plugin.ParseResult.Success).graph
+        assertEquals("RuntimeView", graph.root?.type)
+        assertEquals("webview", graph.root?.attributes?.get("runtimeKind")?.raw)
+        // 运行时组件不应产生降级 WARNING（有专门占位渲染器）
+        assertTrue(graph.diagnostics.none { it.severity == Severity.WARNING && "downgraded to Box" in it.message })
+    }
 }

@@ -199,4 +199,67 @@ class ComposeSourceParserTest {
         assertTrue(roots.containsKey("ScreenA"))
         assertTrue(roots.containsKey("ScreenB"))
     }
+
+    @Test
+    fun `navigation bar and bottom navigation map to NavigationBar`() {
+        val src = """
+            @Composable fun Home() {
+                NavigationBar {
+                    NavigationBarItem(true, {}, label = { Text("Home") })
+                }
+            }
+        """
+        val (roots, issues) = parseOrThrow(src)
+        assertEquals("NavigationBar", roots.values.first().type)
+        assertTrue("NavigationBar must not be downgraded", issues.none { "Unsupported Composable '<NavigationBar>'" in it })
+    }
+
+    @Test
+    fun `alert dialog maps to AlertDialog`() {
+        val src = """
+            @Composable fun Home() {
+                AlertDialog(onDismissRequest = {}, confirmButton = { }, title = { Text("Title") })
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("AlertDialog", roots.values.first().type)
+    }
+
+    @Test
+    fun `badge maps to Badge`() {
+        val src = """
+            @Composable fun Home() {
+                Badge { Text("3") }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("Badge", roots.values.first().type)
+    }
+
+    @Test
+    fun `web view maps to RuntimeView with runtimeKind`() {
+        val src = """
+            @Composable fun Home() {
+                WebView(url = "https://example.com")
+            }
+        """
+        val (roots, issues) = parseOrThrow(src)
+        val root = roots.values.first()
+        assertEquals("RuntimeView", root.type)
+        assertEquals("webview", root.attributes["runtimeKind"])
+        assertTrue("runtime component must not be downgraded to Box", issues.none { "WebView" in it && "Box" in it })
+    }
+
+    @Test
+    fun `video view maps to RuntimeView with runtimeKind`() {
+        val src = """
+            @Composable fun Home() {
+                VideoView()
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        val root = roots.values.first()
+        assertEquals("RuntimeView", root.type)
+        assertEquals("videoview", root.attributes["runtimeKind"])
+    }
 }

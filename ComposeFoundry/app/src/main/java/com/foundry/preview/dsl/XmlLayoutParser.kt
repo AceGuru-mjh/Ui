@@ -243,6 +243,11 @@ class XmlLayoutParser {
             "androidx.recyclerview.widget.RecyclerView" -> "LazyColumn"
             "androidx.viewpager2.widget.ViewPager2" -> "LazyColumn"
             "androidx.swiperefreshlayout.widget.SwipeRefreshLayout" -> "Scroll"
+            // 运行时组件：静态预览无法真实呈现，映射到占位渲染器
+            "WebView" -> "RuntimeView"
+            "VideoView" -> "RuntimeView"
+            "SurfaceView" -> "RuntimeView"
+            "TextureView" -> "RuntimeView"
             else -> "Box"
         }
 
@@ -376,6 +381,11 @@ class XmlLayoutParser {
 
         attrs["android:layout_weight"]?.let { w -> w.toFloatOrNull()?.let { elementAttrs["weight"] = it.toString() } }
         attrs["android:weightSum"]?.let { s -> s.toFloatOrNull()?.let { elementAttrs["weightSum"] = it.toString() } }
+
+        // 运行时组件：记录原始标签，供 RuntimeViewRenderer 给出精确占位提示
+        if (type == "RuntimeView" && !elementAttrs.containsKey("runtimeKind")) {
+            elementAttrs["runtimeKind"] = tag.lowercase()
+        }
 
         // ConstraintLayout 约束近似还原：把 app:layout_constraint*_to*Of="parent" 转成 Box 子节点 align
         modifier = applyConstraintAlign(attrs, modifier)
