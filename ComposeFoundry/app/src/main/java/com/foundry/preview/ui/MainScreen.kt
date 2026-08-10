@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Accessibility
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,6 +77,13 @@ fun MainScreen(viewModel: FoundryViewModel) {
         if (statusMessage.isNotEmpty()) {
             snackbarHostState.showSnackbar(statusMessage)
             viewModel.clearStatus()
+        }
+    }
+
+    // 进入“市场”页时加载插件仓库索引（内置 assets 兜底）。
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == 7) {
+            viewModel.loadPluginRepository(context)
         }
     }
 
@@ -179,6 +187,12 @@ fun MainScreen(viewModel: FoundryViewModel) {
                         icon = { Icon(Icons.Filled.Folder, contentDescription = "Project") },
                         label = { Text("Project") }
                     )
+                    NavigationBarItem(
+                        selected = selectedTab == 7,
+                        onClick = { viewModel.selectTab(7) },
+                        icon = { Icon(Icons.Filled.Storefront, contentDescription = "Market") },
+                        label = { Text("Market") }
+                    )
                 }
             }
         ) { paddingValues ->
@@ -195,6 +209,7 @@ fun MainScreen(viewModel: FoundryViewModel) {
                     4 -> CodeGeneratorScreen(viewModel = viewModel)
                     5 -> AccessibilityScreen(viewModel = viewModel)
                     6 -> ProjectScreen(viewModel = viewModel)
+                    7 -> MarketplaceScreen(viewModel = viewModel)
                 }
             }
         }

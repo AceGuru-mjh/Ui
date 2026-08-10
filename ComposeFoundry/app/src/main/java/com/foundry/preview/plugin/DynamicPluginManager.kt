@@ -1,0 +1,83 @@
+package com.foundry.preview.plugin
+
+import android.content.Context
+import android.util.Log
+import com.foundry.core.plugin.PluginManager
+import com.foundry.core.plugin.PluginValidator
+import com.foundry.core.plugin.RemotePluginManifest
+import com.foundry.core.plugin.UiFormatPlugin
+import dalvik.system.DexClassLoader
+
+/**
+ * 动态插件管理器：在现有 [PluginManager] 本地注册之上，增加从应用私有存储动态加载并
+ * 热注册插件的能力（文章第四节的 DynamicPluginManager）。
+ *
+ * 安全要点（来自 Android 官方 DexClassLoader 文档与文章第五节）：
+ *  - 仅从应用私有内部存储（filesDir / codeCacheDir）加载，绝不从外部存储加载，避免代码注入。
+ *  - 加载前用 [PluginValidator] 校验 SHA-256，确保插件未被篡改。
+ *  - 通过 parent ClassLoader 传入应用 ClassLoader，使插件能解析主程序与
+ *    core:ui-plugin-sdk 中的 [UiFormatPlugin] 契约；插件自带依赖则在其独立 ClassLoader
+ *    沙箱中隔离，解决“依赖地狱”。
+ *  - 同 id 旧版本存在时先卸载再注册，实现热更新（Instant Fix，无需发版审核）。
+ */
+object DynamicPluginManager {
+
+    private const val TAG = "DynamicPluginManager"
+
+    /** 已加载插件的 ClassLoader 记录，便于诊断与未来卸载/GC。 */
+    private val loaders = mutableMapOf<String, ClassLoader>()
+
+    fun pluginsDir(context: Context): File =
+        File(context.filesDir, "plugins").also { it.mkdirs() }
+
+    fun pluginFile(context: Context, manifest: RemotePluginManifest): File =
+        File(pluginsDir(context), "${manifest.id}/${manifest.id}.dex")
+
+    /**
+     * 校验（可选）+ DexClassLoader 动态加载 + 反射实例化 + 注册到现有 [PluginManager]。
+     *
+     * @param skipShaCheck 仅本地开发调试用，跳过 SHA-256 校验；生产环境必须保持 false。
+     */
+    @Synchronized
+    fun install(
+        context: Context,
+        manifest: RemotePluginManifest,
+        dexFile: File,
+        skipShaCheck: Boolean = false
+    ): UiFormatPlugin {
+        require(dexFile.exists()) { "Plugin file not found: ${dexFile.absolutePath}" }
+
+        if (skipShaCheck) {
+            Log.w(TAG, "SHA-256 check SKIPPED for ${manifest.id} (local dev only)")
+        } else {
+            PluginValidator.verifyOrThrow(dexFile, manifest.sha256)
+        }
+
+        // 热更新：已注册同 id 且版本不同的插件，先卸载再注册。
+        val existing = PluginManager.all().firstOrNull { it.descriptor.id == manifest.id }
+        if (existing != null && existing.descriptor.version != manifest.version) {
+            PluginManager.unregister(manifest.id)
+            loaders.remove(manifest.id)
+        }
+
+        // 关键魔法：DexClassLoader 从内部存储加载 dex，parent 共享主程序 ClassLoader。
+        // optimizedDirectory 在 API 26+ 已被忽略，但保留传入 codeCacheDir 以保证兼容。
+        val loader = DexClassLoader(
+            dexFile.absolutePath,
+            context.codeCacheDir.absolutePath,
+            null,                 // 不携带额外 native 库搜索路径
+            context.classLoader  // 共享主程序 + core:ui-plugin-sdk 的 UiFormatPlugin 定义
+        )
+        val pluginClass = loader.loadClass(manifest.entryClass)
+        val instance = pluginClass.getDeclaredConstructor().newInstance() as UiFormatPlugin
+        loaders[manifest.id] = loader
+        PluginManager.register(instance)
+        Log.i(TAG, "Installed plugin ${manifest.id} v${manifest.version} from ${dexFile.absolutePath}")
+        return instance
+    }
+
+    fun isInstalled(id: String): Boolean =
+        PluginManager.all().any { it.descriptor.id == id }
+
+    fun loaderFor(id: String): ClassLoader? = loaders[id]
+}

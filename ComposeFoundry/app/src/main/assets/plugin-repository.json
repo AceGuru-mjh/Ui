@@ -1,0 +1,33 @@
+{
+  "repositoryUrl": "https://plugins.composefoundry.dev/index.json",
+  "updatedAt": "2026-08-10",
+  "plugins": [
+    {
+      "id": "com.foundry.plugin.apk",
+      "version": "0.1.0",
+      "displayName": "APK 解析器",
+      "downloadUrl": "https://plugins.composefoundry.dev/com.foundry.plugin.apk-0.1.0.dex",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "entryClass": "com.foundry.plugin.apk.ApkFormatPlugin",
+      "description": "按需下载的 APK/AAB 二进制资源解析插件。体型较大，故不内置于主程序（演示条目，需自建分发服务）。"
+    },
+    {
+      "id": "com.foundry.plugin.compose.runtime",
+      "version": "0.2.0",
+      "displayName": "Compose 运行时渲染器",
+      "downloadUrl": "https://plugins.composefoundry.dev/com.foundry.plugin.compose.runtime-0.2.0.dex",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "entryClass": "com.foundry.plugin.compose.runtime.ComposeRuntimePlugin",
+      "description": "真正执行 Compose 代码（沙箱）的渲染插件，用于反映运行时状态/条件分支（演示条目）。"
+    },
+    {
+      "id": "com.foundry.plugin.ai.vision",
+      "version": "0.1.0",
+      "displayName": "AI 视觉逆向引擎",
+      "downloadUrl": "https://plugins.composefoundry.dev/com.foundry.plugin.ai.vision-0.1.0.dex",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "entryClass": "com.foundry.plugin.ai.VisionInferencePlugin",
+      "description": "端侧视觉模型，将截图/APK 截图逆向还原为 UiGraph（文章“超纲拓展：创新 1”）。"
+    }
+  ]
+}

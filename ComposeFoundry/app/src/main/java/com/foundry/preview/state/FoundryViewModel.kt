@@ -13,9 +13,15 @@ import com.foundry.preview.project.ProjectIndexer
 import com.foundry.core.plugin.ArtifactDetector
 import com.foundry.core.plugin.ArtifactKind
 import com.foundry.core.plugin.ParseResult
+import com.foundry.core.plugin.PluginDescriptor
 import com.foundry.core.plugin.PluginManager
+import com.foundry.core.plugin.PluginRepositoryIndex
 import com.foundry.core.plugin.PreviewContext
+import com.foundry.core.plugin.RemotePluginManifest
 import com.foundry.core.plugin.UiArtifact
+import com.foundry.preview.plugin.DynamicPluginManager
+import com.foundry.preview.plugin.PluginDownloader
+import com.foundry.preview.plugin.PluginRepositoryProvider
 import com.foundry.core.uimodel.ResourceTable
 import com.foundry.core.uimodel.UiCapability
 import com.foundry.core.uimodel.UiGraph
@@ -112,6 +118,16 @@ class FoundryViewModel : ViewModel() {
 
     private val _projectIndex = MutableStateFlow<ProjectIndex?>(null)
     val projectIndex: StateFlow<ProjectIndex?> = _projectIndex.asStateFlow()
+
+    // 动态插件市场（文章第四节：Dynamic Plugin Marketplace）
+    private val _pluginRepository = MutableStateFlow<PluginRepositoryIndex?>(null)
+    val pluginRepository: StateFlow<PluginRepositoryIndex?> = _pluginRepository.asStateFlow()
+
+    private val _installedPlugins = MutableStateFlow<List<PluginDescriptor>>(emptyList())
+    val installedPlugins: StateFlow<List<PluginDescriptor>> = _installedPlugins.asStateFlow()
+
+    private val _installingPluginIds = MutableStateFlow<Set<String>>(emptySet())
+    val installingPluginIds: StateFlow<Set<String>> = _installingPluginIds.asStateFlow()
 
     // 任务：Android 资源引用解析——基于当前文件所在工程根扫描得到的资源表，供插件解析 @string/@color/@dimen。
     private var _resourceTable: ResourceTable = ResourceTable()
@@ -714,6 +730,80 @@ class FoundryViewModel : ViewModel() {
 
     fun clearStatus() {
         _statusMessage.value = ""
+    }
+
+    // ───────────────────────── 动态插件市场 ─────────────────────────
+
+    /** 加载插件仓库索引（优先内置 assets，离线可用）并刷新已注册插件清单。 */
+    fun loadPluginRepository(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _pluginRepository.value = PluginRepositoryProvider.loadFromAssets(context)
+            refreshInstalledPlugins()
+        }
+    }
+
+    /** 从远端 URL 拉取仓库索引（网络）。 */
+    fun loadPluginRepositoryRemote(url: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { PluginRepositoryProvider.fetchRemote(url) }
+                .onSuccess { _pluginRepository.value = it; refreshInstalledPlugins() }
+                .onFailure { _statusMessage.value = "仓库索引拉取失败: ${it.message}" }
+        }
+    }
+
+    /** 重新同步已注册插件（内置 + 动态加载）的清单，供 UI 展示。 */
+    fun refreshInstalledPlugins() {
+        _installedPlugins.value = PluginManager.all().map { it.descriptor }
+    }
+
+    /** 完整流程：下载（带缓存）→ SHA-256 校验 → DexClassLoader 加载 → 热注册。 */
+    fun installPlugin(context: Context, manifest: RemotePluginManifest) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _installingPluginIds.value = _installingPluginIds.value + manifest.id
+            try {
+                val file = PluginDownloader.download(context, manifest)
+                DynamicPluginManager.install(context, manifest, file)
+                refreshInstalledPlugins()
+                _statusMessage.value = "已安装插件 ${manifest.displayName} v${manifest.version}"
+            } catch (e: Exception) {
+                _statusMessage.value = "插件安装失败: ${e.message}"
+            } finally {
+                _installingPluginIds.value = _installingPluginIds.value - manifest.id
+            }
+        }
+    }
+
+    /**
+     * 本地插件热加载（开发者调试用）：从文档选择器读取 dex/jar/apk 并加载。
+     * 约定入口类为 com.foundry.plugin.LocalPlugin，并跳过 SHA-256 校验。
+     */
+    fun installPluginFromUri(context: Context, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val name = uri.lastPathSegment
+                    ?.substringAfterLast('/')
+                    ?.replace(Regex("\\.(dex|jar|apk)$"), "Plugin")
+                    ?: "LocalPlugin"
+                val target = File(DynamicPluginManager.pluginsDir(context), "$name/$name.dex")
+                target.parentFile?.mkdirs()
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    target.outputStream().use { out -> input.copyTo(out) }
+                }
+                val manifest = RemotePluginManifest(
+                    id = "local.$name",
+                    version = "local",
+                    displayName = name,
+                    downloadUrl = "",
+                    sha256 = "",
+                    entryClass = "com.foundry.plugin.LocalPlugin"
+                )
+                DynamicPluginManager.install(context, manifest, target, skipShaCheck = true)
+                refreshInstalledPlugins()
+                _statusMessage.value = "已加载本地插件 $name"
+            } catch (e: Exception) {
+                _statusMessage.value = "本地插件加载失败: ${e.message}"
+            }
+        }
     }
 
     private fun scheduleAutoSave() {
