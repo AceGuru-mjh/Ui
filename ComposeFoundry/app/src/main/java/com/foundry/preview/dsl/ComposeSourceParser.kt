@@ -419,8 +419,8 @@ class ComposeSourceParser {
                 "fillMaxWidth" -> mod.copy(fillMaxWidth = true)
                 "fillMaxHeight" -> mod.copy(fillMaxHeight = true)
                 "fillMaxSize" -> mod.copy(fillMaxSize = true)
-                "wrapContentWidth" -> mod
-                "wrapContentHeight" -> mod
+                "wrapContentWidth" -> mod.copy(fillMaxWidth = false)
+                "wrapContentHeight" -> mod.copy(fillMaxHeight = false)
                 "padding" -> mod.copy(padding = parsePaddingArgs(argsStr, mod.padding))
                 "size" -> applySize(mod, argsStr)
                 "width" -> mod.copy(width = dimDp(argsStr))
@@ -430,7 +430,7 @@ class ComposeSourceParser {
                 "border" -> {
                     val parts = splitTopLevel(argsStr, ',')
                     val width = dimDp(parts.firstOrNull() ?: "")
-                    val color = parseColorArg(argsStr, null)
+                    val color = parseColorArg(parts.getOrNull(1) ?: "", null)
                     mod.copy(
                         borderWidth = width ?: mod.borderWidth,
                         borderColor = color ?: mod.borderColor
@@ -442,8 +442,6 @@ class ComposeSourceParser {
                 "weight" -> mod // weight 作用于 Row/Column 子项，由组件属性层处理，Modifier 层保留
                 "shadow" -> mod.copy(elevation = dimDp(argsStr))
                 "backgroundColor" -> mod.copy(background = parseColorArg(argsStr, mod.background))
-                "wrapContentWidth" -> mod.copy(fillMaxWidth = false)
-                "wrapContentHeight" -> mod.copy(fillMaxHeight = false)
                 else -> mod
             }
         }

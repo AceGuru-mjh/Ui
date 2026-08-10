@@ -51,6 +51,7 @@ class ProjectIndexerTest {
     fun `plain kotlin file without compose is not previewable`() {
         val root = File(System.getProperty("java.io.tmpdir"), "foundry-proj-${UUID.randomUUID()}")
         root.deleteOnExit()
+        root.mkdirs()
         File(root, "Util.kt").writeText(
             """
             fun greet(name: String): String = "hi ${'$'}name"
@@ -68,6 +69,7 @@ class ProjectIndexerTest {
     fun `composable kotlin file is previewable`() {
         val root = File(System.getProperty("java.io.tmpdir"), "foundry-proj-${UUID.randomUUID()}")
         root.deleteOnExit()
+        root.mkdirs()
         File(root, "Home.kt").writeText(
             """
             import androidx.compose.runtime.Composable

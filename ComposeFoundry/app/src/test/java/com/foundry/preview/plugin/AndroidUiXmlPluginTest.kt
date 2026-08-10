@@ -95,7 +95,7 @@ class AndroidUiXmlPluginTest {
             android:text="OK" android:onClick="onOkClicked"/>"""
         val result = plugin.parse(xmlArtifact(xml), PreviewContext())
         val graph = (result as com.foundry.core.plugin.ParseResult.Success).graph
-        assertEquals("onOkClicked", graph.root?.attributes?.get("onClick"))
+        assertEquals("onOkClicked", graph.root?.attributes?.get("onClick")?.raw)
     }
 
     @Test
@@ -105,7 +105,7 @@ class AndroidUiXmlPluginTest {
             android:text="Hi" android:letterSpacing="0.08"/>"""
         val result = plugin.parse(xmlArtifact(xml), PreviewContext())
         val graph = (result as com.foundry.core.plugin.ParseResult.Success).graph
-        assertEquals("0.08", graph.root?.attributes?.get("letterSpacing"))
+        assertEquals("0.08", graph.root?.attributes?.get("letterSpacing")?.raw)
     }
 
     @Test
