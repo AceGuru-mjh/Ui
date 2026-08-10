@@ -4,6 +4,7 @@ import com.foundry.core.plugin.UiFormatPlugin
 import com.foundry.core.plugin.PluginManager
 import com.foundry.preview.plugin.AndroidUiJsonPlugin
 import com.foundry.preview.plugin.AndroidUiXmlPlugin
+import com.foundry.preview.plugin.AndroidUiComposePlugin
 
 /**
  * 渲染器 / 插件 注册门面。
@@ -17,6 +18,7 @@ object RendererManager {
         initializeRenderers()
         PluginManager.register(AndroidUiJsonPlugin())
         PluginManager.register(AndroidUiXmlPlugin())
+        PluginManager.register(AndroidUiComposePlugin())
     }
 
     fun get(type: String): ComponentRenderer? = ComponentRegistry.get(type)

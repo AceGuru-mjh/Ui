@@ -59,7 +59,9 @@ data class UiModifierSpec(
     val horizontalArrangement: String? = null,
     val contentAlignment: String? = null,
     val align: String? = null,
-    val scrollable: Boolean = false
+    val scrollable: Boolean = false,
+    val margin: PaddingSpec? = null,
+    val alpha: Float? = null
 )
 
 /**

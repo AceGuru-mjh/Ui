@@ -72,7 +72,14 @@ fun toUiNode(element: UiElement, path: String = "root"): UiNode {
                 horizontalArrangement = dslMod.horizontalArrangement,
                 contentAlignment = dslMod.contentAlignment,
                 align = dslMod.align,
-                scrollable = dslMod.scrollable
+                scrollable = dslMod.scrollable,
+                margin = dslMod.margin?.let { p ->
+                    PaddingSpec(
+                        all = p.all, horizontal = p.horizontal, vertical = p.vertical,
+                        start = p.start, top = p.top, end = p.end, bottom = p.bottom
+                    )
+                },
+                alpha = dslMod.alpha
             )
         )
     }
@@ -116,7 +123,14 @@ fun toUiElement(node: UiNode): UiElement {
         horizontalArrangement = mod?.horizontalArrangement,
         contentAlignment = mod?.contentAlignment,
         align = mod?.align,
-        scrollable = mod?.scrollable ?: false
+        scrollable = mod?.scrollable ?: false,
+        margin = mod?.margin?.let { p ->
+            DslPadding(
+                all = p.all, horizontal = p.horizontal, vertical = p.vertical,
+                start = p.start, top = p.top, end = p.end, bottom = p.bottom
+            )
+        },
+        alpha = mod?.alpha
     )
     val attributes = node.attributes.mapValues { (_, v) -> v.toRawString() }
     val children = node.children.map { toUiElement(it) }

@@ -1,18 +1,20 @@
 package com.foundry.preview.dsl
 
-import com.foundry.preview.engine.ComponentRegistry
+import com.foundry.core.uimodel.CANONICAL_NODE_TYPES
 import com.foundry.preview.engine.Diagnostic
 import com.foundry.preview.engine.DiagnosticLevel
 
 /**
  * DSL 校验器。
  * 检查元素类型是否受支持、属性是否合法、嵌套深度是否超限。
+ *
+ * 类型清单复用 core 层的 [CANONICAL_NODE_TYPES]（单一事实来源），
+ * 不再反向依赖 app 渲染层的 ComponentRegistry，降低分层耦合。
  */
 class UiValidator {
 
     companion object {
-        val SUPPORTED_TYPES: Set<String>
-            get() = ComponentRegistry.allTypes()
+        val SUPPORTED_TYPES: Set<String> = CANONICAL_NODE_TYPES
         const val MAX_DEPTH = 32
     }
 

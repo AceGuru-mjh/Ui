@@ -3,18 +3,24 @@ package com.foundry.preview.state
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import java.io.File
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.foundry.preview.dsl.UiElement
 import com.foundry.preview.dsl.UiDocument
+import com.foundry.preview.project.ProjectIndex
+import com.foundry.preview.project.ProjectIndexer
 import com.foundry.core.plugin.ArtifactDetector
 import com.foundry.core.plugin.ArtifactKind
 import com.foundry.core.plugin.ParseResult
 import com.foundry.core.plugin.PluginManager
 import com.foundry.core.plugin.PreviewContext
 import com.foundry.core.plugin.UiArtifact
+import com.foundry.core.uimodel.ResourceTable
 import com.foundry.core.uimodel.UiCapability
 import com.foundry.core.uimodel.UiGraph
+import com.foundry.preview.project.buildResourceTable
+import com.foundry.preview.project.findAndroidProjectRoot
 import com.foundry.preview.engine.DiagnosticsEngine
 import com.foundry.preview.plugin.toEngineDiagnostic
 import com.foundry.preview.plugin.toUiDocument
@@ -99,6 +105,16 @@ class FoundryViewModel : ViewModel() {
     // 作为“单一可信中间表示”，供 UI 展示元数据、未来替换现有渲染路径。
     private val _uiGraph = MutableStateFlow<UiGraph?>(null)
     val uiGraph: StateFlow<UiGraph?> = _uiGraph.asStateFlow()
+
+    // 任务 D：项目级索引器状态（Stage 4 预览原型）
+    private val _projectRootPath = MutableStateFlow("")
+    val projectRootPath: StateFlow<String> = _projectRootPath.asStateFlow()
+
+    private val _projectIndex = MutableStateFlow<ProjectIndex?>(null)
+    val projectIndex: StateFlow<ProjectIndex?> = _projectIndex.asStateFlow()
+
+    // 任务：Android 资源引用解析——基于当前文件所在工程根扫描得到的资源表，供插件解析 @string/@color/@dimen。
+    private var _resourceTable: ResourceTable = ResourceTable()
 
     private val undoStack = mutableListOf<String>()
     private val redoStack = mutableListOf<String>()
@@ -189,7 +205,7 @@ class FoundryViewModel : ViewModel() {
                 _statusMessage.value = "No matching plugin"
                 return@launch
             }
-            when (val result = plugin.parse(artifact, PreviewContext())) {
+            when (val result = plugin.parse(artifact, PreviewContext(resourceTable = _resourceTable))) {
                 is ParseResult.Success -> {
                     _uiGraph.value = result.graph
                     result.diagnostics.forEach { engine.add(toEngineDiagnostic(it)) }
@@ -625,6 +641,9 @@ class FoundryViewModel : ViewModel() {
 
         // 统一走插件管线：选中 Android XML 插件解析为 UiGraph，再转回 DSL 渲染。
         viewModelScope.launch {
+            // 若能通过 uri 路径解析出工程根，则刷新资源表（供 @string/@color/@dimen 解析）
+            uri.path?.let { p -> findAndroidProjectRoot(File(p)) }
+                ?.let { _resourceTable = buildResourceTable(it) }
             val baseArtifact = UiArtifact(
                 id = "imported-xml",
                 uri = uri.toString(),
@@ -641,7 +660,7 @@ class FoundryViewModel : ViewModel() {
                 fallbackXmlDirect(xmlContent, "无匹配插件")
                 return@launch
             }
-            when (val result = plugin.parse(artifact, PreviewContext())) {
+            when (val result = plugin.parse(artifact, PreviewContext(resourceTable = _resourceTable))) {
                 is ParseResult.Success -> applyImportedGraph(result.graph, xmlContent)
                 is ParseResult.Partial -> applyImportedGraph(result.graph, xmlContent)
                 is ParseResult.Failed -> fallbackXmlDirect(xmlContent, "插件解析失败")
@@ -811,5 +830,71 @@ class FoundryViewModel : ViewModel() {
             ),
             children = element.children.map { toA11yNode(it) }
         )
+    }
+
+    // ===== 任务 D：项目级索引 / 加载（Stage 4 原型） =====
+
+    fun setProjectRootPath(path: String) {
+        _projectRootPath.value = path
+    }
+
+    /** 扫描项目目录，列出可预览的 XML/JSON/KT 文件。 */
+    fun indexProject() {
+        val root = _projectRootPath.value.trim()
+        if (root.isEmpty()) {
+            _statusMessage.value = "请输入项目根目录路径"
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val index = ProjectIndexer.index(root)
+            _projectIndex.value = index
+            _statusMessage.value = "索引完成：${index.previewableCount} 个可预览文件（共 ${index.files.size} 个）"
+        }
+    }
+
+    /** 从项目索引中加载某个文件，走统一插件管线渲染。 */
+    fun loadProjectFile(path: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val content = runCatching { File(path).readText(Charsets.UTF_8) }
+                .getOrElse { e ->
+                    _statusMessage.value = "读取失败：${e.message}"
+                    return@launch
+                }
+            val ext = path.substringAfterLast('.', "").lowercase()
+            // 基于被加载文件所在工程根刷新资源表（向上找含 res/ 或 AndroidManifest.xml 的目录）
+            _resourceTable = buildResourceTable(findAndroidProjectRoot(File(path)) ?: File(path))
+            val baseArtifact = UiArtifact(
+                id = "project:$path",
+                uri = path,
+                displayName = path.substringAfterLast('/').substringAfterLast('\\'),
+                content = content,
+                extension = ext
+            )
+            val artifact = baseArtifact.copy(detectedKind = ArtifactDetector.detect(baseArtifact))
+            val plugin = PluginManager.selectFor(artifact, requires = setOf(UiCapability.RENDER_INTERACTIVE))
+                ?: PluginManager.selectFor(artifact)
+            val p = plugin ?: run {
+                _statusMessage.value = "无匹配插件：${artifact.displayName}"
+                return@launch
+            }
+            when (val result = p.parse(artifact, PreviewContext(resourceTable = _resourceTable))) {
+                is ParseResult.Success -> {
+                    _uiGraph.value = result.graph
+                    _document.value = toUiDocument(result.graph)
+                    _code.value = content
+                    _renderMode.value = RenderMode.JSON_DSL
+                    _statusMessage.value = "已加载并预览：${artifact.displayName}"
+                }
+                is ParseResult.Partial -> {
+                    _uiGraph.value = result.graph
+                    _document.value = result.graph?.let { toUiDocument(it) }
+                    _code.value = content
+                    _statusMessage.value = "部分预览（有降级）：${artifact.displayName}"
+                }
+                is ParseResult.Failed -> {
+                    _statusMessage.value = "解析失败：${artifact.displayName}"
+                }
+            }
+        }
     }
 }

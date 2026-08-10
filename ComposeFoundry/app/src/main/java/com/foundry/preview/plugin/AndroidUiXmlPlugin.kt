@@ -3,6 +3,9 @@ package com.foundry.preview.plugin
 import com.foundry.core.plugin.*
 import com.foundry.core.uimodel.*
 import com.foundry.preview.dsl.XmlLayoutParser
+import com.foundry.preview.dsl.StyleTable
+import com.foundry.preview.project.findAndroidProjectRoot
+import java.io.File
 
 /**
  * 平台化后的第二个插件：把 Android XML Layout 适配进统一插件契约 UiFormatPlugin。
@@ -47,7 +50,15 @@ class AndroidUiXmlPlugin : UiFormatPlugin {
             listOf(err("No content available for artifact '${artifact.displayName}'"))
         )
 
-        val (element, issues) = XmlLayoutParser().parse(content).getOrElse { e ->
+        // 约束/style/include 需要工程根与样式表：基于 artifact.uri 推导（容错，失败则跳过）
+        val projectRoot = artifact.uri.let { uri ->
+            if (uri.isNotBlank() && !uri.startsWith("content://")) {
+                findAndroidProjectRoot(File(uri))
+            } else null
+        }
+        val styleTable = projectRoot?.let { StyleTable.loadFrom(File(it, "res/values")) }
+
+        val (element, issues) = XmlLayoutParser().parse(content, styleTable, projectRoot).getOrElse { e ->
             return ParseResult.Failed(
                 listOf(err("XML parse failed: ${e.message ?: e::class.simpleName}"))
             )

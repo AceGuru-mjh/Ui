@@ -205,21 +205,22 @@ class UiValidatorTest {
     }
 
     @Test
-    fun `supported types count is 18`() {
+    fun `supported types count is 21`() {
         // column, row, box, text, button, spacer, card, divider, image,
         // textfield, scroll, surface, lazycolumn, switch, checkbox, slider,
-        // progressindicator, tabrow
-        assertEquals(18, UiValidator.SUPPORTED_TYPES.size)
+        // progressindicator, tabrow, radiobutton, spinner, chip
+        assertEquals(21, UiValidator.SUPPORTED_TYPES.size)
     }
 
     @Test
-    fun `all 18 expected types are in supported set`() {
+    fun `all 21 expected types are in supported set`() {
         val expected = setOf(
             "column", "row", "box", "text", "button",
             "spacer", "card", "divider", "image",
             "textfield", "scroll", "surface",
             "lazycolumn", "switch", "checkbox",
-            "slider", "progressindicator", "tabrow"
+            "slider", "progressindicator", "tabrow",
+            "radiobutton", "spinner", "chip"
         )
         assertEquals(expected, UiValidator.SUPPORTED_TYPES)
     }

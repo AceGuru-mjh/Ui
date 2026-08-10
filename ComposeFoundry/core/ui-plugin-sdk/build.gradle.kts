@@ -1,25 +1,12 @@
 plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
+    id("java-library")
+    id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
-android {
-    namespace = "com.foundry.core.plugin"
-    compileSdk = 34
-
-    defaultConfig {
-        minSdk = 26
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 dependencies {
@@ -28,5 +15,6 @@ dependencies {
     // ParseResult / UiArtifact 等作为插件契约交换格式可序列化
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
 
+    // 单元测试（纯 JVM）
     testImplementation("junit:junit:4.13.2")
 }
