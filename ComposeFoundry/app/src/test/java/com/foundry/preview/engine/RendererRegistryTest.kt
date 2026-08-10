@@ -13,7 +13,8 @@ class RendererRegistryTest {
         "text", "column", "row", "box", "button", "spacer", "card", "divider",
         "image", "textfield", "scroll", "surface", "lazycolumn", "switch",
         "checkbox", "slider", "progressindicator", "tabrow", "radiobutton",
-        "spinner", "chip", "navigationbar", "alertdialog", "badge", "runtimeview"
+        "spinner", "chip", "navigationbar", "alertdialog", "badge", "runtimeview",
+        "drawer", "snackbar", "dropdownmenu", "bottomsheet"
     )
 
     @Test

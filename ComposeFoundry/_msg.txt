@@ -1,0 +1,17 @@
+feat(stage4): add drawer/snackbar/dropdown/bottomsheet renderers
+
+Renderers (new, total 29):
+- Drawer: NavigationView / ModalNavigationDrawer / Drawer (side panel with items)
+- Snackbar: message + optional action button
+- DropdownMenu: ExposedDropdownMenuBox / DropdownMenu (expanded static)
+- BottomSheet: ModalBottomSheet (Material3)
+
+Parser mappings:
+- ComposeSourceParser: ModalNavigationDrawer/NavigationView/Drawer -> Drawer;
+  Snackbar/SnackbarHost -> Snackbar; DropdownMenu/ExposedDropdownMenuBox -> DropdownMenu;
+  ModalBottomSheet/BottomSheet -> BottomSheet
+- XmlLayoutParser: NavigationView -> Drawer (DrawerLayout stays Box container)
+
+Tests:
+- ComposeSourceParser: drawer/snackbar/dropdownmenu/bottomsheet mappings
+- RendererRegistry: all 29 built-in renderers registered (no Unknown box)

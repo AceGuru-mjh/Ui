@@ -32,4 +32,8 @@ fun initializeRenderers() {
     ComponentRegistry.register(AlertDialogRenderer())
     ComponentRegistry.register(BadgeRenderer())
     ComponentRegistry.register(RuntimeViewRenderer())
+    ComponentRegistry.register(DrawerRenderer())
+    ComponentRegistry.register(SnackbarRenderer())
+    ComponentRegistry.register(DropdownMenuRenderer())
+    ComponentRegistry.register(BottomSheetRenderer())
 }

@@ -588,6 +588,10 @@ class ComposeSourceParser {
         "Badge" -> "Badge"
         "WebView" -> "RuntimeView" // 标记 runtimeKind=webview
         "VideoView", "AndroidView" -> "RuntimeView"
+        "ModalNavigationDrawer", "NavigationView", "Drawer" -> "Drawer"
+        "Snackbar", "SnackbarHost" -> "Snackbar"
+        "DropdownMenu", "ExposedDropdownMenuBox" -> "DropdownMenu"
+        "ModalBottomSheet", "BottomSheet" -> "BottomSheet"
         else -> null
     }
 

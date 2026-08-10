@@ -262,4 +262,51 @@ class ComposeSourceParserTest {
         assertEquals("RuntimeView", root.type)
         assertEquals("videoview", root.attributes["runtimeKind"])
     }
+
+    @Test
+    fun `navigation drawer maps to Drawer`() {
+        val src = """
+            @Composable fun Home() {
+                ModalNavigationDrawer(drawerContent = { Text("menu") }) { }
+            }
+        """
+        val (roots, issues) = parseOrThrow(src)
+        assertEquals("Drawer", roots.values.first().type)
+        assertTrue(issues.none { "Unsupported Composable '<Drawer>'" in it })
+    }
+
+    @Test
+    fun `snackbar maps to Snackbar`() {
+        val src = """
+            @Composable fun Home() {
+                Snackbar(action = { }, content = { Text("saved") })
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("Snackbar", roots.values.first().type)
+    }
+
+    @Test
+    fun `dropdown menu maps to DropdownMenu`() {
+        val src = """
+            @Composable fun Home() {
+                DropdownMenu(expanded = true, onDismissRequest = { }) {
+                    DropdownMenuItem(text = { Text("Edit") }, onClick = { })
+                }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("DropdownMenu", roots.values.first().type)
+    }
+
+    @Test
+    fun `modal bottom sheet maps to BottomSheet`() {
+        val src = """
+            @Composable fun Home() {
+                ModalBottomSheet(onDismissRequest = { }) { Text("sheet") }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("BottomSheet", roots.values.first().type)
+    }
 }

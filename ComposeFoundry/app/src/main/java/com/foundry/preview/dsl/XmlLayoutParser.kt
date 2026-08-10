@@ -248,6 +248,9 @@ class XmlLayoutParser {
             "VideoView" -> "RuntimeView"
             "SurfaceView" -> "RuntimeView"
             "TextureView" -> "RuntimeView"
+            // 抽屉：DrawerLayout 容器 + NavigationView 侧边菜单
+            "androidx.drawerlayout.widget.DrawerLayout" -> "Box"
+            "com.google.android.material.navigation.NavigationView" -> "Drawer"
             else -> "Box"
         }
 
