@@ -36,4 +36,10 @@ fun initializeRenderers() {
     ComponentRegistry.register(SnackbarRenderer())
     ComponentRegistry.register(DropdownMenuRenderer())
     ComponentRegistry.register(BottomSheetRenderer())
+    ComponentRegistry.register(ListItemRenderer())
+    ComponentRegistry.register(RangeSliderRenderer())
+    ComponentRegistry.register(SearchBarRenderer())
+    ComponentRegistry.register(NavigationRailRenderer())
+    ComponentRegistry.register(SegmentedButtonRenderer())
+    ComponentRegistry.register(TopAppBarRenderer())
 }

@@ -309,4 +309,75 @@ class ComposeSourceParserTest {
         val (roots, _) = parseOrThrow(src)
         assertEquals("BottomSheet", roots.values.first().type)
     }
+
+    @Test
+    fun `list item maps to ListItem`() {
+        val src = """
+            @Composable fun Home() {
+                LazyColumn {
+                    item { ListItem(headlineContent = { Text("Title") }) }
+                }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        val listItem = roots.values.first().children.first().children.first()
+        assertEquals("ListItem", listItem.type)
+    }
+
+    @Test
+    fun `range slider maps to RangeSlider`() {
+        val src = """
+            @Composable fun Home() {
+                RangeSlider(value = 0.2f..0.8f, onValueChange = { })
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("RangeSlider", roots.values.first().type)
+    }
+
+    @Test
+    fun `search bar maps to SearchBar`() {
+        val src = """
+            @Composable fun Home() {
+                SearchBar(query = "", onQueryChange = { }, onSearch = { }, active = false, onActiveChange = { }) { }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("SearchBar", roots.values.first().type)
+    }
+
+    @Test
+    fun `navigation rail maps to NavigationRail`() {
+        val src = """
+            @Composable fun Home() {
+                NavigationRail { }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("NavigationRail", roots.values.first().type)
+    }
+
+    @Test
+    fun `segmented button maps to SegmentedButton`() {
+        val src = """
+            @Composable fun Home() {
+                SingleChoiceSegmentedButtonRow {
+                    SegmentedButton(selected = true, onClick = { }) { Text("A") }
+                }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("SegmentedButton", roots.values.first().type)
+    }
+
+    @Test
+    fun `top app bar maps to TopAppBar`() {
+        val src = """
+            @Composable fun Home() {
+                TopAppBar(title = { Text("App") })
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("TopAppBar", roots.values.first().type)
+    }
 }

@@ -14,7 +14,8 @@ class RendererRegistryTest {
         "image", "textfield", "scroll", "surface", "lazycolumn", "switch",
         "checkbox", "slider", "progressindicator", "tabrow", "radiobutton",
         "spinner", "chip", "navigationbar", "alertdialog", "badge", "runtimeview",
-        "drawer", "snackbar", "dropdownmenu", "bottomsheet"
+        "drawer", "snackbar", "dropdownmenu", "bottomsheet",
+        "listitem", "rangeslider", "searchbar", "navigationrail", "segmentedbutton", "topappbar"
     )
 
     @Test

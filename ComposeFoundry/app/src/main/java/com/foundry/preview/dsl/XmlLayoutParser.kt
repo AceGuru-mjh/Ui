@@ -251,6 +251,10 @@ class XmlLayoutParser {
             // 抽屉：DrawerLayout 容器 + NavigationView 侧边菜单
             "androidx.drawerlayout.widget.DrawerLayout" -> "Box"
             "com.google.android.material.navigation.NavigationView" -> "Drawer"
+            "com.google.android.material.navigation.NavigationRailView" -> "NavigationRail"
+            "androidx.appcompat.widget.Toolbar" -> "TopAppBar"
+            "androidx.appcompat.widget.SearchView" -> "SearchBar"
+            "SearchView" -> "SearchBar"
             else -> "Box"
         }
 

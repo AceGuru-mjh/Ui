@@ -592,6 +592,12 @@ class ComposeSourceParser {
         "Snackbar", "SnackbarHost" -> "Snackbar"
         "DropdownMenu", "ExposedDropdownMenuBox" -> "DropdownMenu"
         "ModalBottomSheet", "BottomSheet" -> "BottomSheet"
+        "ListItem", "Row(Item)" -> "ListItem"
+        "RangeSlider" -> "RangeSlider"
+        "SearchBar" -> "SearchBar"
+        "NavigationRail" -> "NavigationRail"
+        "SegmentedButton", "MultiChoiceSegmentedButtonRow", "SingleChoiceSegmentedButtonRow" -> "SegmentedButton"
+        "TopAppBar", "CenterAlignedTopAppBar", "MediumTopAppBar", "LargeTopAppBar" -> "TopAppBar"
         else -> null
     }
 

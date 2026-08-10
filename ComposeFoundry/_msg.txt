@@ -1,0 +1,21 @@
+feat(stage4): add listitem/rangeslider/searchbar/rail/segmented/topappbar renderers
+
+Renderers (new, total 35):
+- ListItem: headline/supporting/trailing (pairs with LazyColumn)
+- RangeSlider: dual-thumb interval selector
+- SearchBar: non-active static search bar
+- NavigationRail: side rail with items
+- SegmentedButton: single-choice segmented options
+- TopAppBar: title + action items
+
+Parser mappings:
+- ComposeSourceParser: ListItem -> ListItem; RangeSlider -> RangeSlider;
+  SearchBar -> SearchBar; NavigationRail -> NavigationRail;
+  SegmentedButton/(Multi|Single)ChoiceSegmentedButtonRow -> SegmentedButton;
+  TopAppBar/(CenterAligned|Medium|Large)TopAppBar -> TopAppBar
+- XmlLayoutParser: NavigationRailView -> NavigationRail; Toolbar -> TopAppBar;
+  SearchView -> SearchBar
+
+Tests:
+- ComposeSourceParser: 6 new mapping tests
+- RendererRegistry: all 35 built-in renderers registered (no Unknown box)
