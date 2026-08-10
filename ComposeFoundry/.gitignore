@@ -23,3 +23,9 @@ out/
 
 # OS
 Thumbs.db
+
+# Local build output / debug logs
+push_out.txt
+compile_out.txt
+.ghtoken
+ci_logs/
