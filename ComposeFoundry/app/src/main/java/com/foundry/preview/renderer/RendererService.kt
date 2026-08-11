@@ -9,6 +9,7 @@ import android.graphics.Paint
 import android.os.IBinder
 import android.os.RemoteException
 import android.util.Log
+import android.view.View
 import com.foundry.core.renderer.IRenderCallback
 import com.foundry.core.renderer.IRenderEngine
 import com.foundry.core.renderer.IRenderService
