@@ -42,6 +42,18 @@
       "minSdk": 31,
       "minCoreVersion": "0.2.0",
       "description": "端侧视觉模型，将截图/APK 截图逆向还原为 UiGraph（文章"超纲拓展：创新 1"）。"
+    },
+    {
+      "id": "com.foundry.plugin.manifest",
+      "version": "1.0.0",
+      "displayName": "Android Manifest 解析器 (A类)",
+      "sha256": "REPLACE_WITH_REAL_SHA256_AFTER_BUILD",
+      "entryClass": "com.foundry.plugin.version.ManifestPlugin",
+      "mirrors": [
+        { "url": "http://192.168.1.100:8080/plugin-manifest.apk", "type": "SERVER", "region": "LAN", "priority": 1 }
+      ],
+      "minSdk": 26,
+      "description": "真实格式解析器：解析 AndroidManifest.xml 提取包名/权限/组件。演示 A 类网络下发的格式补丁。替换 sha256 与局域网 IP。"
     }
   ]
 }

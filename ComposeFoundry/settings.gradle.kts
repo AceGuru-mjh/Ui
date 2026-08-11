@@ -30,3 +30,4 @@ include(":core:renderer-api")
 include(":plugins:plugin-simple-json")
 // Compose JSON DSL 渲染引擎（基于 Compose 的离线渲染插件）
 include(":plugins:plugin-compose-dsl")
+include(":plugins:plugin-version-printer")

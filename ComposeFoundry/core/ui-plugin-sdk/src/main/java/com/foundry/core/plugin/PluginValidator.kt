@@ -39,5 +39,34 @@ object PluginValidator {
         }
     }
 
+    /**
+     * 从 APK（v1 签名）提取签名证书 SHA-256（小写十六进制）。
+     * 现代 APK 多用 v2/v3 签名（不含 META-INF 证书），此时返回 null，
+     * 调用方应回退到 Android PackageManager 校验。纯 JVM，便于 CLI/服务端复用。
+     */
+    fun apkCertSha256V1(file: File): String? = runCatching {
+        val jar = java.util.jar.JarFile(file)
+        try {
+            val entries = jar.entries()
+            while (entries.hasMoreElements()) {
+                val name = entries.nextElement().name
+                if (name.startsWith("META-INF/") &&
+                    (name.endsWith(".RSA") || name.endsWith(".DSA") || name.endsWith(".EC"))
+                ) {
+                    val cert = jar.getJarEntry(name)?.certificates
+                        ?.firstOrNull() as? java.security.cert.X509Certificate
+                    if (cert != null) return@runCatching sha256Of(cert.encoded.inputStream())
+                }
+            }
+            null
+        } finally {
+            jar.close()
+        }
+    }.getOrNull()
+
+    /** 比对 APK 签名证书指纹是否与钉扎值一致（忽略大小写）。actual 为 null 视为不匹配。 */
+    fun certMatches(actual: String?, expected: String): Boolean =
+        actual != null && actual.equals(expected, ignoreCase = true)
+
     private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 }

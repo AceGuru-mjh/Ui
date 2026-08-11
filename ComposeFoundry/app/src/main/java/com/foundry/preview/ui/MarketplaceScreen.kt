@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -50,13 +51,22 @@ fun MarketplaceScreen(viewModel: FoundryViewModel) {
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        LaunchedEffect(Unit) { viewModel.checkForUpdates(context) }
+
         item {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("插件市场", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "插件市场",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedButton(onClick = { viewModel.checkForUpdates(context) }) {
+                    Text("检查更新")
+                }
+                Spacer(Modifier.width(8.dp))
                 Button(onClick = { openLocalLauncher.launch(arrayOf("application/octet-stream", "*/*")) }) {
                     Text("安装本地插件")
                 }

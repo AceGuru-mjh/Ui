@@ -35,7 +35,12 @@ data class RemotePluginManifest(
     val minCoreVersion: String? = null,
     /** 要求的最低 Android API Level。 */
     val minSdk: Int? = null,
-    /** 可选：插件作者签名（base64），用于后续签名校验阶段。 */
+    /**
+     * 可选：签名证书 SHA-256 指纹（小写十六进制），用于**签名钉扎**（certificate pinning）。
+     * 非空时，DynamicPluginManager.install 会在加载前校验 APK 签名证书哈希是否与此一致，
+     * 防止中间人替换同内容的恶意 APK（SHA-256 仅防篡改、不防伪造来源，签名钉扎补上这一环）。
+     * 为空则跳过，保持仅 SHA-256 完整性校验的向后兼容行为。
+     */
     val signature: String? = null
 ) {
     /** 解析出实际可用的下载源列表（优先 mirrors，回退到 downloadUrl）。 */
