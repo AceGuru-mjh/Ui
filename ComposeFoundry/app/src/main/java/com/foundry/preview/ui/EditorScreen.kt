@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.foundry.preview.engine.Diagnostic
 import com.foundry.preview.engine.DiagnosticLevel
+import com.foundry.preview.engine.DiagnosticsEngine
 import com.foundry.preview.state.FoundryViewModel
 
 @Composable
