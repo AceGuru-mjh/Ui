@@ -2,18 +2,35 @@ package com.foundry.preview.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,14 +43,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.ExperimentalGraphicsApi
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.drawToBitmap
 import com.foundry.preview.engine.RendererManager
 import com.foundry.preview.engine.XmlDirectPreview
@@ -51,11 +73,16 @@ fun PreviewScreen(viewModel: FoundryViewModel) {
     val uiGraph by viewModel.uiGraph.collectAsState()
     val devicePreset by viewModel.devicePreset.collectAsState()
     val zoomLevel by viewModel.zoomLevel.collectAsState()
+    val rendererBitmap by viewModel.rendererBitmap.collectAsState()
+    val rendererDiagnostics by viewModel.rendererDiagnostics.collectAsState()
+    val isRendererBusy by viewModel.isRendererBusy.collectAsState()
+    val rendererMemoryMb by viewModel.rendererMemoryMb.collectAsState()
     val (width, height) = viewModel.getDeviceDimensions()
     val context = LocalContext.current
     val view = LocalView.current
     val graphicsLayer = rememberGraphicsLayer()
     val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
 
     val pngExportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("image/png")
@@ -78,7 +105,9 @@ fun PreviewScreen(viewModel: FoundryViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .padding(12.dp)
+            .verticalScroll(scrollState)
     ) {
+        // ── 标题行 ──
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -134,7 +163,7 @@ fun PreviewScreen(viewModel: FoundryViewModel) {
             )
         }
 
-        // 平台元数据：来自插件产出的规范化 UiGraph
+        // 平台元数据
         uiGraph?.meta?.let { meta ->
             Row(
                 modifier = Modifier
@@ -143,22 +172,12 @@ fun PreviewScreen(viewModel: FoundryViewModel) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Plugin: ${meta.parser}",
-                    style = MaterialTheme.typography.labelSmall
-                )
-                Text(
-                    text = "Level: ${meta.previewLevel.name}",
-                    style = MaterialTheme.typography.labelSmall
-                )
-                Text(
-                    text = "Confidence: ${meta.confidence.name}",
-                    style = MaterialTheme.typography.labelSmall
-                )
+                Text(text = "Plugin: ${meta.parser}", style = MaterialTheme.typography.labelSmall)
+                Text(text = "Level: ${meta.previewLevel.name}", style = MaterialTheme.typography.labelSmall)
+                Text(text = "Confidence: ${meta.confidence.name}", style = MaterialTheme.typography.labelSmall)
             }
         }
 
-        // 平台插件系统可见化：列出已注册格式插件
         val plugins = RendererManager.registeredPlugins()
         if (plugins.isNotEmpty()) {
             Text(
@@ -178,17 +197,18 @@ fun PreviewScreen(viewModel: FoundryViewModel) {
             Icon(Icons.Filled.Save, contentDescription = "Export PNG")
         }
 
+        // ── 原生预览区域（Compose Canvas 渲染） ──
         Box(
             modifier = Modifier
-                .weight(1f)
                 .fillMaxWidth()
+                .height((height * zoomLevel * 0.6f).dp.coerceAtLeast(200.dp))
                 .padding(top = 8.dp),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier.graphicsLayer(
-                    scaleX = zoomLevel,
-                    scaleY = zoomLevel
+                    scaleX = zoomLevel * 0.6f,
+                    scaleY = zoomLevel * 0.6f
                 )
             ) {
                 Box(
@@ -199,24 +219,131 @@ fun PreviewScreen(viewModel: FoundryViewModel) {
                         drawContent()
                     }
                 ) {
-                when (renderMode) {
-                    RenderMode.JSON_DSL -> {
-                        PreviewSurface(
-                            graph = uiGraph,
-                            deviceWidth = width,
-                            deviceHeight = height,
-                            diagnostics = diagnostics
-                        )
+                    when (renderMode) {
+                        RenderMode.JSON_DSL -> {
+                            PreviewSurface(
+                                graph = uiGraph,
+                                deviceWidth = width,
+                                deviceHeight = height,
+                                diagnostics = diagnostics
+                            )
+                        }
+                        RenderMode.XML_DIRECT -> {
+                            XmlDirectPreview(
+                                xmlContent = xmlContent,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
-                    RenderMode.XML_DIRECT -> {
-                        XmlDirectPreview(
-                            xmlContent = xmlContent,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
                 }
             }
         }
+
+        // ── 多进程沙箱渲染面板 ──
+        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+        Text(
+            text = "Sandbox Renderer (:renderer process)",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        // 内存占用指示
+        if (rendererMemoryMb >= 0) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 8.dp)
+            ) {
+                Icon(
+                    Icons.Filled.Memory,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "Renderer memory: ${rendererMemoryMb}MB",
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // 渲染按钮
+            OutlinedButton(
+                onClick = { viewModel.renderViaIpc(context) },
+                enabled = !isRendererBusy,
+                modifier = Modifier.weight(1f)
+            ) {
+                if (isRendererBusy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(8.dp))
+                } else {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(if (isRendererBusy) "Rendering..." else "Render via Sandbox")
+            }
+        }
+
+        // 诊断输出
+        if (rendererDiagnostics.isNotEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                )
+            ) {
+                Text(
+                    text = rendererDiagnostics,
+                    modifier = Modifier.padding(8.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+
+        // 渲染结果位图
+        rendererBitmap?.let { bmp ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Column {
+                    Text(
+                        text = "Sandbox Output",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(12.dp, 8.dp)
+                    )
+                    Image(
+                        bitmap = bmp.asImageBitmap(),
+                        contentDescription = "Renderer output",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(400.dp)
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surface),
+                        contentScale = ContentScale.Fit
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
     }
 }

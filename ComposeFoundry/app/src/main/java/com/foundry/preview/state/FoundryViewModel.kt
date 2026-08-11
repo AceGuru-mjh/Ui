@@ -25,6 +25,11 @@ import com.foundry.preview.plugin.PluginRepositoryProvider
 import com.foundry.core.uimodel.ResourceTable
 import com.foundry.core.uimodel.UiCapability
 import com.foundry.core.uimodel.UiGraph
+import com.foundry.core.renderer.RenderRequest
+import com.foundry.core.renderer.RenderResult
+import com.foundry.core.renderer.RenderStatus
+import com.foundry.preview.plugin.LocalSdkScanner
+import com.foundry.preview.renderer.RendererClient
 import com.foundry.preview.project.buildResourceTable
 import com.foundry.preview.project.findAndroidProjectRoot
 import com.foundry.preview.engine.DiagnosticsEngine
@@ -128,6 +133,26 @@ class FoundryViewModel : ViewModel() {
 
     private val _installingPluginIds = MutableStateFlow<Set<String>>(emptySet())
     val installingPluginIds: StateFlow<Set<String>> = _installingPluginIds.asStateFlow()
+
+    // ── 多进程沙箱渲染 ──
+    private var rendererClient: RendererClient? = null
+    private var rendererRequestCounter = 0L
+
+    /** 渲染进程返回的位图（主进程 UI 通过文件路径异步加载后展示）。 */
+    private val _rendererBitmap = MutableStateFlow<Bitmap?>(null)
+    val rendererBitmap: StateFlow<Bitmap?> = _rendererBitmap.asStateFlow()
+
+    /** 最近一次 IPC 渲染诊断信息。 */
+    private val _rendererDiagnostics = MutableStateFlow("")
+    val rendererDiagnostics: StateFlow<String> = _rendererDiagnostics.asStateFlow()
+
+    /** IPC 渲染是否正在进行中。 */
+    private val _isRendererBusy = MutableStateFlow(false)
+    val isRendererBusy: StateFlow<Boolean> = _isRendererBusy.asStateFlow()
+
+    /** 渲染进程内存占用（MB），-1 表示未连接。 */
+    private val _rendererMemoryMb = MutableStateFlow(-1)
+    val rendererMemoryMb: StateFlow<Int> = _rendererMemoryMb.asStateFlow()
 
     // 任务：Android 资源引用解析——基于当前文件所在工程根扫描得到的资源表，供插件解析 @string/@color/@dimen。
     private var _resourceTable: ResourceTable = ResourceTable()
@@ -814,6 +839,124 @@ class FoundryViewModel : ViewModel() {
                 _statusMessage.value = "本地插件加载失败: ${e.message}"
             }
         }
+    }
+
+    // ───────────────────────── 多进程沙箱 IPC 渲染 ─────────────────────────
+
+    /**
+     * 绑定渲染进程（:renderer），建立 AIDL 通道。
+     * 应在 Activity onStart 或用户首次触发渲染前调用。
+     */
+    fun bindRenderer(context: Context) {
+        if (rendererClient?.connected == true) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val client = RendererClient(context)
+                client.bind()
+                rendererClient = client
+                _rendererMemoryMb.value = client.getRendererMemoryMb()
+                _statusMessage.value = "已连接渲染进程 (:renderer)"
+            } catch (e: Exception) {
+                _statusMessage.value = "渲染进程连接失败: ${e.message}"
+            }
+        }
+    }
+
+    /** 解绑渲染进程，释放 :renderer 进程资源。 */
+    fun unbindRenderer() {
+        rendererClient?.unbind()
+        rendererClient = null
+        _rendererMemoryMb.value = -1
+    }
+
+    /**
+     * IPC 渲染（简化路径）：将当前源码通过 `renderAndCapture` 直接发送到 :renderer 进程，
+     * 渲染进程启动透明 RenderCaptureActivity 执行 View 渲染 + 截屏（规避 Service 无 Window 限制），
+     * 返回 PNG 文件路径 → 主进程解码 Bitmap。
+     *
+     * ## 架构
+     * Service(无 Window) → startActivity(RenderCaptureActivity) → DexClassLoader 加载 SDK
+     * → 反射创建 View → attach Window → drawToBitmap → PNG 文件 → latch.countDown()
+     * → Service 拿到 outputPath → Binder 返回 String(文件路径，非 byte[]) → 主进程 decodeFile
+     *
+     * 如果无 SDK 可用（空壳 IPC），渲染进程会返回诊断占位 Bitmap，证明链路通畅。
+     */
+    fun renderViaIpc(context: Context) {
+        val source = _code.value
+        if (source.isBlank()) {
+            _statusMessage.value = "No source code to render"
+            return
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            _isRendererBusy.value = true
+            _rendererDiagnostics.value = "正在连接渲染进程..."
+
+            // 确保已绑定
+            if (rendererClient?.connected != true) {
+                try {
+                    bindRenderer(context)
+                    kotlinx.coroutines.delay(500)
+                } catch (_: Exception) { }
+            }
+
+            val client = rendererClient
+            if (client?.connected != true) {
+                _isRendererBusy.value = false
+                _rendererDiagnostics.value = "渲染进程未连接"
+                _statusMessage.value = "渲染进程未连接，请重试"
+                return@launch
+            }
+
+            try {
+                // 自动选择 SDK：优先扫描本地 foundry-pack.json
+                val availableSdks = getAvailableSdkIds()
+                val sdkId = availableSdks.firstOrNull() ?: "no-sdk"
+                val startMs = System.currentTimeMillis()
+
+                _rendererDiagnostics.value = "已发送渲染请求 (sdkId=$sdkId, ${availableSdks.size} SDK available)"
+                val pngPath = client.renderAndCapture(source, sdkId)
+                val elapsed = System.currentTimeMillis() - startMs
+
+                if (pngPath != null) {
+                    val bmp = client.loadBitmapFromPath(pngPath)
+                    _rendererBitmap.value = bmp
+                    _rendererDiagnostics.value = buildString {
+                        append("渲染完成 (${elapsed}ms")
+                        val fileSize = runCatching { java.io.File(pngPath).length() }.getOrDefault(0L)
+                        if (fileSize > 0) append(", ${fileSize / 1024}KB")
+                        append(", 内存: ${client.getRendererMemoryMb()}MB)")
+                    }
+                    _statusMessage.value = "沙箱渲染完成 (${elapsed}ms)"
+                } else {
+                    _rendererBitmap.value = null
+                    _rendererDiagnostics.value = "渲染失败/超时 (${elapsed}ms)"
+                    _statusMessage.value = "渲染进程返回 null（可能超时或SDK加载失败）"
+                }
+            } catch (e: Exception) {
+                _rendererBitmap.value = null
+                _rendererDiagnostics.value = "IPC 渲染异常: ${e.message}"
+                _statusMessage.value = "渲染进程异常: ${e.message}"
+            } finally {
+                _isRendererBusy.value = false
+                _rendererMemoryMb.value = client.getRendererMemoryMb()
+            }
+        }
+    }
+
+    /** 获取本地可用的 SDK ID 列表（从 foundry-pack.json 扫描结果）。 */
+    private fun getAvailableSdkIds(): List<String> {
+        return try {
+            LocalSdkScanner.scan(LocalSdkScanner.defaultScanDirs()).map { it.id }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /** 清除 IPC 渲染缓存（切换 tab 时调用）。 */
+    fun clearRendererState() {
+        _rendererBitmap.value = null
+        _rendererDiagnostics.value = ""
     }
 
     private fun scheduleAutoSave() {
