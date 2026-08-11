@@ -1,0 +1,11 @@
+{
+  "id": "com.foundry.plugin.simplejson",
+  "version": "1.0.0",
+  "type": "VIEW_RENDERER",
+  "entryClass": "com.foundry.plugin.simplejson.SimpleJsonRenderEngine",
+  "libraries": [
+    "classes.jar"
+  ],
+  "minCoreVersion": "0.2.0",
+  "minSdk": 26
+}
