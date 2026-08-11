@@ -175,11 +175,9 @@ object DynamicPluginManager {
                 android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
             )
             val sig = info?.signingInfo
-            val cert = if (sig?.hasMultipleSigners() == true) {
-                sig.apkContentsSigners.firstOrNull()
-            } else {
-                sig?.signingCertificate
-            }
+            // 用 apkContentsSigners（API 28，跨版本稳定可见）取首个签名证书，
+            // 避免 SigningInfo.signingCertificate 在某些 compileSdk 下的符号解析问题。
+            val cert = sig?.apkContentsSigners?.firstOrNull()
             cert?.let { PluginValidator.sha256Of(it.encoded.inputStream()) }
         } else {
             PluginValidator.apkCertSha256V1(file)

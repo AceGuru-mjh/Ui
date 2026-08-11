@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -46,13 +47,14 @@ fun MarketplaceScreen(viewModel: FoundryViewModel) {
         contract = ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { viewModel.installPluginFromUri(context, it) } }
 
+    // 进入 Tab 时自动检查一次远端更新（在 LazyColumn 之外、@Composable 顶层调用）
+    LaunchedEffect(Unit) { viewModel.checkForUpdates(context) }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        LaunchedEffect(Unit) { viewModel.checkForUpdates(context) }
-
         item {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
