@@ -1,0 +1,169 @@
+name: Plugin Release
+
+# Tag 推送触发：v* 格式（如 v0.3.0）
+# 构建全部插件 → 生成 SHA-256 清单 → 创建 GitHub Release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g., v0.3.0)"
+        required: true
+        default: "v0.3.0"
+      draft:
+        description: "Create as draft?"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write      # 创建 Release
+  actions: read
+
+jobs:
+  build-and-release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v3
+      - run: chmod +x gradlew
+
+      # ── 确定 tag ──
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "value=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── 构建全部插件 ──
+      - name: Build & package plugins
+        run: |
+          ./gradlew --no-daemon \
+            :plugins:plugin-compose-dsl:packagePlugin \
+            :plugins:plugin-simple-json:packagePlugin \
+            :plugins:plugin-version-printer:assembleDebug
+
+      # ── 收集产物 + 计算 SHA-256 ──
+      - name: Collect artifacts & SHA-256
+        id: artifacts
+        run: |
+          RELEASE_DIR="release/${{ steps.tag.outputs.value }}"
+          mkdir -p "$RELEASE_DIR"
+
+          # 逐个插件收集
+          declare -A PACKS=(
+            ["plugin-compose-dsl"]="plugins/plugin-compose-dsl/build/foundry-pack"
+            ["plugin-simple-json"]="plugins/plugin-simple-json/build/foundry-pack"
+          )
+
+          for NAME in "${!PACKS[@]}"; do
+            SRC="${PACKS[$NAME]}"
+            DST="$RELEASE_DIR/$NAME"
+            cp -r "$SRC" "$DST"
+            HASH=$(sha256sum "$DST/classes.jar" | awk '{print $1}')
+            SIZE=$(stat -c%s "$DST/classes.jar")
+            echo "  $NAME: $HASH (${SIZE} bytes)"
+            echo "sha256_${NAME//-/_}=$HASH" >> "$GITHUB_OUTPUT"
+            echo "size_${NAME//-/_}=$SIZE" >> "$GITHUB_OUTPUT"
+          done
+
+          # version-printer APK → A 类解析器载体
+          APK=$(find plugins/plugin-version-printer/build/outputs/apk/debug -name "*.apk" | head -1)
+          if [ -f "$APK" ]; then
+            cp "$APK" "$RELEASE_DIR/plugin-manifest.apk"
+            APK_HASH=$(sha256sum "$RELEASE_DIR/plugin-manifest.apk" | awk '{print $1}')
+            echo "sha256_plugin_manifest=$APK_HASH" >> "$GITHUB_OUTPUT"
+            echo "size_plugin_manifest=$(stat -c%s "$RELEASE_DIR/plugin-manifest.apk")" >> "$GITHUB_OUTPUT"
+            echo "  plugin-manifest: $APK_HASH"
+          fi
+
+          # 生成 SHA-256 清单 JSON
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          cat > "$RELEASE_DIR/manifest-sha256.json" <<JSON
+          {
+            "tag": "${{ steps.tag.outputs.value }}",
+            "repo": "https://github.com/${{ github.repository }}",
+            "generatedAt": "$NOW",
+            "plugins": {
+              "plugin-compose-dsl": {
+                "sha256": "${{ steps.artifacts.outputs.sha256_plugin_compose_dsl }}",
+                "sizeBytes": ${{ steps.artifacts.outputs.size_plugin_compose_dsl }}
+              },
+              "plugin-simple-json": {
+                "sha256": "${{ steps.artifacts.outputs.sha256_plugin_simple_json }}",
+                "sizeBytes": ${{ steps.artifacts.outputs.size_plugin_simple_json }}
+              },
+              "plugin-manifest": {
+                "sha256": "${{ steps.artifacts.outputs.sha256_plugin_manifest }}",
+                "sizeBytes": ${{ steps.artifacts.outputs.size_plugin_manifest }}
+              }
+            }
+          }
+          JSON
+
+          echo "manifest=$RELEASE_DIR/manifest-sha256.json" >> "$GITHUB_OUTPUT"
+
+      # ── 打包 ZIP ──
+      - name: Create ZIP archive
+        run: |
+          RELEASE_DIR="release/${{ steps.tag.outputs.value }}"
+          ZIP="release/foundry-plugins-${{ steps.tag.outputs.value }}.zip"
+          cd "$RELEASE_DIR" && zip -r "../../$(basename $ZIP)" . && cd -
+          echo "  ZIP: $ZIP ($(stat -c%s $ZIP) bytes)"
+
+      # ── 生成 Release Notes ──
+      - name: Generate release notes
+        run: |
+          cat > release/notes.md <<NOTES
+          ## Plugin Artifacts
+
+          | Plugin | SHA-256 |
+          |--------|---------|
+          | plugin-compose-dsl | \`${{ steps.artifacts.outputs.sha256_plugin_compose_dsl }}\` |
+          | plugin-simple-json | \`${{ steps.artifacts.outputs.sha256_plugin_simple_json }}\` |
+          | plugin-manifest.apk | \`${{ steps.artifacts.outputs.sha256_plugin_manifest }}\` |
+
+          ## Deploy
+
+          \`\`\`bash
+          adb push release/ /sdcard/Android/data/com.foundry.preview/files/FoundrySDK/
+          \`\`\`
+
+          ## SHA-256 Verification
+
+          See [manifest-sha256.json](./manifest-sha256.json) in the release assets.
+          NOTES
+
+      # ── GitHub Release ──
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.value }}
+          name: ${{ steps.tag.outputs.value }}
+          body_path: release/notes.md
+          draft: ${{ inputs.draft || false }}
+          files: |
+            release/${{ steps.tag.outputs.value }}/**/*
+            release/foundry-plugins-${{ steps.tag.outputs.value }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 输出汇总 ──
+      - name: Summary
+        run: |
+          echo "::notice::Release ${{ steps.tag.outputs.value }} created"
+          echo "  plugin-compose-dsl:  sha256=${{ steps.artifacts.outputs.sha256_plugin_compose_dsl }}"
+          echo "  plugin-simple-json:  sha256=${{ steps.artifacts.outputs.sha256_plugin_simple_json }}"
+          echo "  plugin-manifest.apk: sha256=${{ steps.artifacts.outputs.sha256_plugin_manifest }}"
+          echo ""
+          echo "  Next: update plugin-repository.json with real SHA-256 values"

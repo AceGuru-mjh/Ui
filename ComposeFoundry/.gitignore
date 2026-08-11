@@ -33,3 +33,9 @@ ci_logs/
 # Plugin packaging & release artifacts
 FoundrySDK/
 release/
+
+# Kotlin incremental compilation (可安全删除)
+.kotlin/
+
+# Temporary scripts (git commit helper)
+cm.txt

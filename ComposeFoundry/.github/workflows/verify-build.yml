@@ -1,15 +1,15 @@
 name: Verify Build
 
-# 仅用于本地/分支开发期编译验证（不针对 main）。
-# 监听 feat/stage4-previews 分支的 push，编译 app 模块以尽早发现编译错误。
+# 开发期编译验证，确保分支在推送前编译通过。
+# 覆盖：main 保护分支 / 活跃 feature 分支 / 手动触发。
 on:
   push:
-    branches: [ feat/stage4-previews ]
+    branches: [main, feat/plugin-production]
   workflow_dispatch:
 
 jobs:
   compile:
-    name: Compile app (debug)
+    name: Compile app + plugins (debug)
     runs-on: ubuntu-latest
 
     steps:
@@ -28,8 +28,15 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Compile debug sources
-        run: ./gradlew :app:compileDebugKotlin --no-daemon
+      # 并行编译 app + 所有插件模块（利用 Gradle 增量编译）
+      - name: Compile all source modules
+        run: |
+          ./gradlew --no-daemon \
+            :app:compileDebugKotlin \
+            :plugins:plugin-compose-dsl:compileDebugKotlin \
+            :plugins:plugin-simple-json:compileDebugKotlin \
+            :plugins:plugin-version-printer:compileDebugKotlin \
+            :core:renderer-api:compileDebugKotlin
 
       - name: Upload build output on failure
         if: failure()
