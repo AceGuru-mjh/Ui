@@ -9,6 +9,7 @@ import com.foundry.core.plugin.PluginValidator
 import com.foundry.core.plugin.RemotePluginManifest
 import com.foundry.core.plugin.UiFormatPlugin
 import dalvik.system.DexClassLoader
+import java.io.File
 
 /**
  * 动态插件管理器：在现有 [PluginManager] 本地注册之上，增加从应用私有存储动态加载并
