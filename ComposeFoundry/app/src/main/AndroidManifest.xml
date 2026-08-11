@@ -20,6 +20,25 @@
             </intent-filter>
         </activity>
 
+        <!-- 独立渲染进程：多进程沙箱隔离 SDK 执行，避免 ClassLoader 冲突与 OOM 连锁 -->
+        <service
+            android:name=".renderer.RendererService"
+            android:process=":renderer"
+            android:exported="false" />
+
+        <!-- 隐形截屏 Activity：Service 无 Window → 透明 Activity 渲染 → drawToBitmap → 文件保存 → 自毁 -->
+        <activity
+            android:name=".renderer.RenderCaptureActivity"
+            android:process=":renderer"
+            android:theme="@style/Theme.Transparent.NoAnimation"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:showWhenLocked="false"
+            android:turnScreenOn="false" />
+
     </application>
 
 </manifest>
