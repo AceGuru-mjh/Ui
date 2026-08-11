@@ -108,6 +108,9 @@ class ComposeSourceParser {
         while (i < n) {
             i = skipString(code, i)
             if (i >= n) break
+            // 跳过空白后再判定关键字（skipString 只跳过字符串字面量，不跳空白）
+            while (i < n && code[i].isWhitespace()) i++
+            if (i >= n) break
             // 命中 if / for / 已知列表遍历调用
             val kw = when {
                 code.startsWith("if", i) && (i + 2 >= n || !code[i + 2].isLetter()) -> "if"
@@ -332,7 +335,12 @@ class ComposeSourceParser {
         val resolvedType = type ?: "Box"
 
         val modifier = parseModifierChain(argsPart)
-        val attributes = parseAttributes(id, argsPart)
+        val attributes = parseAttributes(id, argsPart).toMutableMap().apply {
+            // 运行时组件（WebView/VideoView 等）记录原始 kind，供 RuntimeViewRenderer 给出精确占位
+            if (resolvedType == "RuntimeView" && !containsKey("runtimeKind")) {
+                put("runtimeKind", id.lowercase())
+            }
+        }
 
         // 提取尾随 lambda：Name(args) { ... } 或 Name { ... }，与 args 分离后再递归解析
         var ls = lambdaStart
@@ -575,6 +583,21 @@ class ComposeSourceParser {
         "Icon" -> "Image"
         "IconButton" -> "Button"
         "AssistChip", "FilterChip", "ElevatedAssistChip" -> "Chip"
+        "NavigationBar", "BottomNavigation", "BottomAppBar" -> "NavigationBar"
+        "AlertDialog", "Dialog" -> "AlertDialog"
+        "Badge" -> "Badge"
+        "WebView" -> "RuntimeView" // 标记 runtimeKind=webview
+        "VideoView", "AndroidView" -> "RuntimeView"
+        "ModalNavigationDrawer", "NavigationView", "Drawer" -> "Drawer"
+        "Snackbar", "SnackbarHost" -> "Snackbar"
+        "DropdownMenu", "ExposedDropdownMenuBox" -> "DropdownMenu"
+        "ModalBottomSheet", "BottomSheet" -> "BottomSheet"
+        "ListItem", "Row(Item)" -> "ListItem"
+        "RangeSlider" -> "RangeSlider"
+        "SearchBar" -> "SearchBar"
+        "NavigationRail" -> "NavigationRail"
+        "SegmentedButton", "MultiChoiceSegmentedButtonRow", "SingleChoiceSegmentedButtonRow" -> "SegmentedButton"
+        "TopAppBar", "CenterAlignedTopAppBar", "MediumTopAppBar", "LargeTopAppBar" -> "TopAppBar"
         else -> null
     }
 
@@ -679,6 +702,19 @@ class ComposeSourceParser {
         val n = src.length
         while (i < n) {
             when {
+                // 字符串字面量：整体保留，避免内部 // 被误当行注释（如 "https://..."）
+                src[i] == '"' || src[i] == '\'' -> {
+                    val quote = src[i]
+                    sb.append(quote)
+                    i++
+                    while (i < n) {
+                        sb.append(src[i])
+                        if (src[i] == quote) { i++; break }
+                        // 转义字符（\" \' \\）不视为字符串结束
+                        if (src[i] == '\\') { i++; if (i < n) sb.append(src[i]) }
+                        i++
+                    }
+                }
                 src.startsWith("//", i) -> { while (i < n && src[i] != '\n') i++ }
                 src.startsWith("/*", i) -> {
                     val end = src.indexOf("*/", i)
