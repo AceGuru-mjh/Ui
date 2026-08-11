@@ -43,13 +43,18 @@ abstract class IRenderService : Binder() {
     abstract fun getRendererMemoryMb(): Int
 
     /**
-     * 同步渲染为字节数组（简化 IPC 路径，用于"空壳 IPC"验证）。
-     * @param payload 预览代码（JSON DSL / XML / Compose 源码）
+     * 同步渲染为 PNG 文件（简化 IPC 路径，用于"空壳 IPC"验证）。
+     *
+     * ## Binder 1MB 限制规避（P0）
+     * 主进程先把渲染源码写入 filesDir 临时文件，只把 **文件路径** 通过 Binder 传递。
+     * 大 payload（几千行 Compose/XML）不会触发 TransactionTooLargeException。
+     *
+     * @param payloadFilePath 渲染源码临时文件路径（主进程 filesDir，同 App 多进程共享）
      * @param sdkId  本地离线 SDK ID（对应 foundry-pack.json 中的 id 字段）
-     * @return PNG 字节数组，失败返回 null
+     * @return PNG 文件绝对路径，失败返回 null
      */
     @Throws(RemoteException::class)
-    abstract fun renderToBitmap(payload: String, sdkId: String): ByteArray?
+    abstract fun renderToBitmap(payloadFilePath: String, sdkId: String): String?
 
     /**
      * 隐形 Activity 截屏渲染（规避 Service 无 Window 的限制）。
@@ -58,16 +63,17 @@ abstract class IRenderService : Binder() {
      * 渲染 View → drawToBitmap → 写入 PNG 文件 → CountDownLatch 同步返回文件路径。
      *
      * ## 设计决策
-     * - 返回文件路径 String 而非 byte[]/Bitmap，避免 TransactionTooLargeException（Binder 缓冲区仅 1MB）
-     * - 主进程通过文件路径解码 Bitmap，渲染进程的文件目录对主进程不可见，但 Bitmap 已通过 Binder 路径共享
+     * - 入参与返回均使用**文件路径**而非源码/Bitmap，全程规避 TransactionTooLargeException（Binder 缓冲区仅 1MB）
+     * - payload 由主进程写入 filesDir，渲染进程读取后删除
+     * - 主进程通过文件路径解码 Bitmap，同 App 多进程共享 filesDir
      * - 超时 30 秒后返回 null
      *
-     * @param payload 渲染源码
+     * @param payloadFilePath 渲染源码临时文件路径
      * @param sdkId   本地 SDK ID
      * @return PNG 文件绝对路径，失败或超时返回 null
      */
     @Throws(RemoteException::class)
-    abstract fun renderAndCapture(payload: String, sdkId: String): String?
+    abstract fun renderAndCapture(payloadFilePath: String, sdkId: String): String?
 
     override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
         val descriptor = DESCRIPTOR
@@ -97,23 +103,18 @@ abstract class IRenderService : Binder() {
             }
             TRANSACTION_renderToBitmap -> {
                 data.enforceInterface(descriptor)
-                val payload = data.readString() ?: ""
+                val payloadFilePath = data.readString() ?: ""
                 val sdkId = data.readString() ?: ""
-                val bytes = renderToBitmap(payload, sdkId)
+                val pngPath = renderToBitmap(payloadFilePath, sdkId)
                 reply?.writeNoException()
-                if (bytes != null) {
-                    reply?.writeInt(bytes.size)
-                    reply?.writeByteArray(bytes)
-                } else {
-                    reply?.writeInt(-1)
-                }
+                reply?.writeString(pngPath)
                 true
             }
             TRANSACTION_renderAndCapture -> {
                 data.enforceInterface(descriptor)
-                val payload = data.readString() ?: ""
+                val payloadFilePath = data.readString() ?: ""
                 val sdkId = data.readString() ?: ""
-                val path = renderAndCapture(payload, sdkId)
+                val path = renderAndCapture(payloadFilePath, sdkId)
                 reply?.writeNoException()
                 reply?.writeString(path)
                 true
@@ -165,32 +166,28 @@ abstract class IRenderService : Binder() {
             }
         }
 
-        override fun renderToBitmap(payload: String, sdkId: String): ByteArray? {
+        override fun renderToBitmap(payloadFilePath: String, sdkId: String): String? {
             val data = Parcel.obtain()
             val reply = Parcel.obtain()
             try {
                 data.writeInterfaceToken(DESCRIPTOR)
-                data.writeString(payload)
+                data.writeString(payloadFilePath)
                 data.writeString(sdkId)
                 remote.transact(TRANSACTION_renderToBitmap, data, reply, 0)
                 reply.readException()
-                val size = reply.readInt()
-                if (size < 0) return null
-                val bytes = ByteArray(size)
-                reply.readByteArray(bytes)
-                return bytes
+                return reply.readString()
             } finally {
                 data.recycle()
                 reply.recycle()
             }
         }
 
-        override fun renderAndCapture(payload: String, sdkId: String): String? {
+        override fun renderAndCapture(payloadFilePath: String, sdkId: String): String? {
             val data = Parcel.obtain()
             val reply = Parcel.obtain()
             try {
                 data.writeInterfaceToken(DESCRIPTOR)
-                data.writeString(payload)
+                data.writeString(payloadFilePath)
                 data.writeString(sdkId)
                 remote.transact(TRANSACTION_renderAndCapture, data, reply, 0)
                 reply.readException()

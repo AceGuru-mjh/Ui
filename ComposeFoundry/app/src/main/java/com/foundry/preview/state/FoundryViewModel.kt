@@ -910,12 +910,12 @@ class FoundryViewModel : ViewModel() {
 
             try {
                 // 自动选择 SDK：优先扫描本地 foundry-pack.json
-                val availableSdks = getAvailableSdkIds()
+                val availableSdks = getAvailableSdkIds(context)
                 val sdkId = availableSdks.firstOrNull() ?: "no-sdk"
                 val startMs = System.currentTimeMillis()
 
                 _rendererDiagnostics.value = "已发送渲染请求 (sdkId=$sdkId, ${availableSdks.size} SDK available)"
-                val pngPath = client.renderAndCapture(source, sdkId)
+                val pngPath = client.renderAndCapture(context, source, sdkId)
                 val elapsed = System.currentTimeMillis() - startMs
 
                 if (pngPath != null) {
@@ -945,9 +945,9 @@ class FoundryViewModel : ViewModel() {
     }
 
     /** 获取本地可用的 SDK ID 列表（从 foundry-pack.json 扫描结果）。 */
-    private fun getAvailableSdkIds(): List<String> {
+    private fun getAvailableSdkIds(context: Context): List<String> {
         return try {
-            LocalSdkScanner.scan(LocalSdkScanner.defaultScanDirs()).map { it.id }
+            LocalSdkScanner.scan(LocalSdkScanner.defaultScanDirs(context)).map { it.id }
         } catch (_: Exception) {
             emptyList()
         }

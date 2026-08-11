@@ -192,7 +192,7 @@ class RenderCaptureActivity : Activity() {
      * [onCreate] 负责将 View attach 到 Window 后执行异步截图。
      */
     private fun renderView(payload: String, sdkId: String): View? {
-        val manifests = LocalSdkScanner.scan(LocalSdkScanner.defaultScanDirs())
+        val manifests = LocalSdkScanner.scan(LocalSdkScanner.defaultScanDirs(this))
         val manifest = manifests.firstOrNull { it.id == sdkId }
 
         if (manifest != null) {
@@ -375,11 +375,11 @@ class RenderCaptureActivity : Activity() {
     // ═══════════════════════════════════════════════════════════
 
     private fun findPackRoot(sdkId: String): File {
-        for (dir in LocalSdkScanner.defaultScanDirs()) {
+        for (dir in LocalSdkScanner.defaultScanDirs(this)) {
             val packDir = File(dir, sdkId)
             if (packDir.exists() && packDir.isDirectory) return packDir
         }
-        val fallback = File(LocalSdkScanner.defaultScanDirs().first(), sdkId)
+        val fallback = File(LocalSdkScanner.defaultScanDirs(this).first(), sdkId)
         fallback.mkdirs()
         return fallback
     }

@@ -6,7 +6,9 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.RemoteException
 import android.util.Log
 import android.view.View
@@ -48,6 +50,8 @@ class RendererService : Service() {
 
     companion object {
         private const val TAG = "RendererService"
+        /** 渲染完成后延迟杀进程的时间（ms），确保 Binder reply 已写回主进程。 */
+        private const val PROCESS_KILL_DELAY_MS = 2_000L
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -95,23 +99,34 @@ class RendererService : Service() {
         }
 
         // ── 简化同步渲染（用户需求核心 API） ──
-        override fun renderToBitmap(payload: String, sdkId: String): ByteArray? {
+        override fun renderToBitmap(payloadFilePath: String, sdkId: String): String? {
             val startMs = System.currentTimeMillis()
             return try {
+                val payload = readPayloadFile(payloadFilePath) ?: return null
                 val bytes = renderToBitmapInternal(payload, sdkId)
-                Log.i(TAG, "renderToBitmap sdkId=$sdkId done in ${System.currentTimeMillis() - startMs}ms " +
-                    "(size=${bytes?.size ?: 0})")
-                bytes
+                if (bytes != null) {
+                    val pngFile = File(filesDir, "render_${System.nanoTime()}.png")
+                    FileOutputStream(pngFile).use { it.write(bytes) }
+                    scheduleProcessKill()
+                    Log.i(TAG, "renderToBitmap sdkId=$sdkId done in ${System.currentTimeMillis() - startMs}ms " +
+                        "(path=${pngFile.absolutePath}, ${pngFile.length()} bytes)")
+                    pngFile.absolutePath
+                } else {
+                    scheduleProcessKill()
+                    null
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "renderToBitmap sdkId=$sdkId failed: ${e.message}", e)
+                scheduleProcessKill()
                 null
             }
         }
 
         // ── 隐形 Activity 截屏渲染（新核心 API） ──
-        override fun renderAndCapture(payload: String, sdkId: String): String? {
+        override fun renderAndCapture(payloadFilePath: String, sdkId: String): String? {
             val startMs = System.currentTimeMillis()
             return try {
+                val payload = readPayloadFile(payloadFilePath) ?: return null
                 val taskId = RenderTaskManager.submitTask(payload, sdkId)
                 Log.i(TAG, "renderAndCapture: launching RenderCaptureActivity for $taskId")
 
@@ -128,9 +143,11 @@ class RendererService : Service() {
                 } else {
                     Log.w(TAG, "renderAndCapture timed out or failed after ${elapsed}ms")
                 }
+                scheduleProcessKill()
                 outputPath
             } catch (e: Exception) {
                 Log.e(TAG, "renderAndCapture failed: ${e.message}", e)
+                scheduleProcessKill()
                 null
             }
         }
@@ -221,7 +238,7 @@ class RendererService : Service() {
     /** 确保已加载 SDK 清单（首次调用时扫描 FoundrySDK/）。 */
     private fun ensureManifestsLoaded() {
         if (manifestsLoaded) return
-        cachedManifests = LocalSdkScanner.scan(LocalSdkScanner.defaultScanDirs())
+        cachedManifests = LocalSdkScanner.scan(LocalSdkScanner.defaultScanDirs(this))
         manifestsLoaded = true
         Log.i(TAG, "Loaded ${cachedManifests.size} local SDK manifests")
     }
@@ -256,14 +273,52 @@ class RendererService : Service() {
 
     /** 在扫描目录中查找指定 SDK pack 的根目录。 */
     private fun findPackRoot(sdkId: String): File {
-        for (dir in LocalSdkScanner.defaultScanDirs()) {
+        for (dir in LocalSdkScanner.defaultScanDirs(this)) {
             val packDir = File(dir, sdkId)
             if (packDir.exists() && packDir.isDirectory) return packDir
         }
         // 降级：返回 FoundrySDK/sdkId
-        val fallback = File(LocalSdkScanner.defaultScanDirs().first(), sdkId)
+        val fallback = File(LocalSdkScanner.defaultScanDirs(this).first(), sdkId)
         fallback.mkdirs()
         return fallback
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  文件辅助 + 进程清理
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * 读取主进程写入的 payload 临时文件，读后即删（防止临时文件累积）。
+     * 主进程与 :renderer 进程同 App 共享 filesDir。
+     */
+    private fun readPayloadFile(path: String): String? {
+        return try {
+            val file = File(path)
+            if (!file.exists() || !file.isFile) {
+                Log.e(TAG, "Payload file not found: $path")
+                return null
+            }
+            val content = file.readText(Charsets.UTF_8)
+            file.delete()
+            Log.i(TAG, "Payload read: $path (${content.length} chars)")
+            content
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read payload file $path: ${e.message}", e)
+            null
+        }
+    }
+
+    /** 进程自毁延迟：给 Binder reply 留出足够时间写回主进程。 */
+    private fun scheduleProcessKill() {
+        mainHandler.removeCallbacks(killRunnable)
+        mainHandler.postDelayed(killRunnable, PROCESS_KILL_DELAY_MS)
+    }
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private val killRunnable = Runnable {
+        Log.i(TAG, "Self-destructing renderer process (post-render cleanup)")
+        android.os.Process.killProcess(android.os.Process.myPid())
     }
 
     // ═══════════════════════════════════════════════════════════

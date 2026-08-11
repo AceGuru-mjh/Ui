@@ -1,5 +1,6 @@
 package com.foundry.preview.plugin
 
+import android.content.Context
 import android.os.Environment
 import android.util.Log
 import kotlinx.serialization.Serializable
@@ -71,17 +72,45 @@ object LocalSdkScanner {
         coerceInputValues = true
     }
 
-    /** 默认扫描目录：外部存储的 FoundrySDK 文件夹。 */
-    fun defaultScanDirs(): List<File> = listOfNotNull(
-        File(Environment.getExternalStorageDirectory(), "FoundrySDK"),
-        File(Environment.getExternalStorageDirectory(), "Android/obb/com.foundry.preview")
+    // ── 扫描结果缓存（P1: 避免连续预览时反复磁盘 IO） ──
+    // 仅缓存非空结果：空结果不缓存，否则用户放入 SDK 后需手动 refresh 才生效。
+    // 有 SDK 时重复调用走缓存；refresh() 可强制重新扫描（用户放入新 SDK 后调用）。
+    @Volatile
+    private var cachedManifests: List<LocalSdkManifest>? = null
+
+    /**
+     * 默认扫描目录。
+     *
+     * ## Android 11+ Scoped Storage 兼容（P0）
+     * 主扫描目录为 **App 私有外部目录**：
+     * `/storage/emulated/0/Android/data/<package>/files/FoundrySDK`
+     * - 无需任何权限，Android 11+ 分区存储下始终可读写
+     * - 同 App 的所有进程（主进程 / :renderer）共享该目录
+     * - 用户通过 `adb push` 或文件管理器放入离线包
+     *
+     * 同时保留旧公共目录 `/storage/emulated/0/FoundrySDK` 的兼容扫描，
+     * 仅当设备允许读取时加入（Android 11+ 默认不可读，会被自动忽略）。
+     */
+    fun defaultScanDirs(context: Context): List<File> = listOfNotNull(
+        File(context.getExternalFilesDir(null), "FoundrySDK").apply { mkdirs() },
+        File(Environment.getExternalStorageDirectory(), "FoundrySDK").takeIf { it.canRead() }
     )
 
     /**
      * 同步扫描指定目录列表，返回所有符合条件的 [LocalSdkManifest]。
      * 遍历每个一级子目录，查找其中的 foundry-pack.json。
+     *
+     * 命中缓存时直接返回，避免每次预览都触发磁盘 IO。
      */
     fun scan(dirs: List<File>): List<LocalSdkManifest> {
+        cachedManifests?.let { return it }
+        val results = doScan(dirs)
+        if (results.isNotEmpty()) cachedManifests = results
+        return results
+    }
+
+    /** 实际扫描逻辑（无缓存）。 */
+    private fun doScan(dirs: List<File>): List<LocalSdkManifest> {
         val results = mutableListOf<LocalSdkManifest>()
         for (dir in dirs) {
             if (!dir.exists() || !dir.isDirectory) continue
@@ -98,11 +127,17 @@ object LocalSdkScanner {
         return results
     }
 
+    /** 使扫描缓存失效（用户放入/更新 SDK 后调用，强制下次重新扫描）。 */
+    fun refresh() {
+        cachedManifests = null
+    }
+
     /** 根据 ID 查找特定 SDK。 */
-    fun getSdkById(sdkId: String): LocalSdkManifest? =
-        scan(defaultScanDirs()).firstOrNull { it.id == sdkId }
+    fun getSdkById(context: Context, sdkId: String): LocalSdkManifest? =
+        scan(defaultScanDirs(context)).firstOrNull { it.id == sdkId }
 
     /** 解析单个 foundry-pack.json → LocalSdkManifest。 */
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     private fun parseManifest(jsonFile: File, packRoot: File): LocalSdkManifest? {
         return try {
             val manifest: LocalSdkManifest = jsonFile.inputStream().use { input ->

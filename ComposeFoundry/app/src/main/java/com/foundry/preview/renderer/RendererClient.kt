@@ -16,6 +16,7 @@ import com.foundry.core.renderer.RenderResult
 import com.foundry.core.renderer.RenderStatus
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
+import java.io.File
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.resume
@@ -181,18 +182,22 @@ class RendererClient(private val context: Context) {
 
     /**
      * 简化同步渲染（核心 API）：
-     * 将源码 payload 通过 Binder 发送到 :renderer 进程，
-     * 渲染进程根据 sdkId 使用对应 SDK 的 DexClassLoader 执行渲染，
-     * 返回 PNG 字节数组（10GB 离线 SDK 场景的核心调用路径）。
+     * 将源码 payload 写入主进程 filesDir 临时文件，再通过 Binder 把**文件路径**发送到 :renderer 进程。
      *
+     * ## Binder 1MB 限制规避（P0）
+     * 大 payload（几千行 Compose/XML）直接过 Binder 会抛 TransactionTooLargeException。
+     * 这里先落盘，AIDL 只传文件路径；渲染进程读文件后删除临时文件。
+     *
+     * @param context 用于获取 filesDir（同 App 多进程共享）
      * @param payload 渲染源码（JSON DSL / XML / Compose Kotlin）
      * @param sdkId   本地 SDK ID（对应 foundry-pack.json 的 id 字段）
-     * @return PNG 字节数组，失败返回 null
+     * @return PNG 文件绝对路径，失败返回 null
      */
-    fun renderToBitmap(payload: String, sdkId: String): ByteArray? {
+    fun renderToBitmap(context: Context, payload: String, sdkId: String): String? {
         val svc = service ?: return null
+        val payloadFilePath = writePayloadFile(context, payload) ?: return null
         return try {
-            svc.renderToBitmap(payload, sdkId)
+            svc.renderToBitmap(payloadFilePath, sdkId)
         } catch (e: Exception) {
             Log.w(TAG, "renderToBitmap failed: ${e.message}")
             null
@@ -200,39 +205,41 @@ class RendererClient(private val context: Context) {
     }
 
     /**
-     * 将 PNG 字节数组解码为 Bitmap。
+     * 隐形 Activity 截屏渲染（核心 API v2）。
+     *
+     * 将源码 payload 写入主进程 filesDir 临时文件，通过 Binder 只传**文件路径**到 :renderer 进程，
+     * 渲染进程启动透明 RenderCaptureActivity 进行 View 渲染 + 截屏，
+     * 返回 PNG 文件绝对路径（全程规避 TransactionTooLargeException）。
+     *
+     * @param context 用于获取 filesDir（同 App 多进程共享）
+     * @param payload 渲染源码
+     * @param sdkId   本地 SDK ID
+     * @return PNG 文件绝对路径，失败返回 null
      */
-    fun bytesToBitmap(bytes: ByteArray): Bitmap? {
+    fun renderAndCapture(context: Context, payload: String, sdkId: String): String? {
+        val svc = service ?: return null
+        val payloadFilePath = writePayloadFile(context, payload) ?: return null
         return try {
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            svc.renderAndCapture(payloadFilePath, sdkId)
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to decode bytes: ${e.message}")
+            Log.w(TAG, "renderAndCapture failed: ${e.message}")
             null
         }
     }
 
     /**
-     * 隐形 Activity 截屏渲染（核心 API v2）。
-     *
-     * 通过 Binder 发送 payload + sdkId 到 :renderer 进程，
-     * 渲染进程启动透明 RenderCaptureActivity 进行 View 渲染 + 截屏，
-     * 返回 PNG 文件绝对路径（规避 TransactionTooLargeException）。
-     *
-     * ## 调用方责任
-     * - 返回的文件路径位于 :renderer 进程的 filesDir，主进程不可直接访问
-     * - 应通过后续的 Binder 调用或基于 content:// URI 把文件传回主进程
-     * - 或者渲染进程已将 PNG 写入主进程可读的共享位置（如外部存储）
-     *
-     * @param payload 渲染源码
-     * @param sdkId   本地 SDK ID
-     * @return PNG 文件绝对路径，失败返回 null
+     * 将渲染源码写入主进程 filesDir/render_tasks/ 临时文件。
+     * 渲染进程读取后自行删除；主进程不负责清理（跨进程共享文件，写方无感知读方）。
      */
-    fun renderAndCapture(payload: String, sdkId: String): String? {
-        val svc = service ?: return null
+    private fun writePayloadFile(context: Context, payload: String): String? {
         return try {
-            svc.renderAndCapture(payload, sdkId)
+            val dir = File(context.filesDir, "render_tasks").apply { mkdirs() }
+            val file = File(dir, "payload_${UUID.randomUUID()}.txt")
+            file.writeText(payload, Charsets.UTF_8)
+            Log.i(TAG, "Payload written: ${file.absolutePath} (${file.length()} bytes)")
+            file.absolutePath
         } catch (e: Exception) {
-            Log.w(TAG, "renderAndCapture failed: ${e.message}")
+            Log.e(TAG, "Failed to write payload file: ${e.message}", e)
             null
         }
     }

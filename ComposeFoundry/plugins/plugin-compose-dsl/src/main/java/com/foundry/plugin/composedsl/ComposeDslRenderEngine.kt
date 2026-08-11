@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -97,6 +98,11 @@ class ComposeDslRenderEngine : IRenderEngine {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
+            // 关键（P0）：Compose 强依赖 ViewTreeLifecycleOwner。
+            // 显式声明 DisposeOnViewTreeLifecycleDestroyed：
+            // - 确保 Compose 在宿主 Activity/View 销毁时正确清理 Composition，防内存泄漏
+            // - 防止 context 非 Activity（如 Service）时未绑定 lifecycle 导致白屏
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 PluginTheme(dsl.theme) {
                     RenderComponentTree(dsl.components)
