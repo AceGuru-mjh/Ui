@@ -87,6 +87,8 @@ dependencies {
     // 平台核心层：规范化 UI 图 + 插件化格式系统
     implementation(project(":core:ui-model"))
     implementation(project(":core:ui-plugin-sdk"))
+    // 多进程渲染通信
+    implementation(project(":core:renderer-api"))
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
