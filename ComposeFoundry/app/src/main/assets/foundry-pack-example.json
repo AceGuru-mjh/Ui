@@ -1,0 +1,13 @@
+{
+  "id": "com.foundry.sdk.compose_v1_6",
+  "version": "1.6.0",
+  "type": "COMPOSE_RUNTIME",
+  "entryClass": "com.foundry.renderer.ComposeRenderEngine",
+  "libraries": [
+    "libs/compose-runtime.jar",
+    "libs/compose-ui.jar",
+    "libs/material3.jar"
+  ],
+  "minCoreVersion": "0.2.0",
+  "minSdk": 26
+}
