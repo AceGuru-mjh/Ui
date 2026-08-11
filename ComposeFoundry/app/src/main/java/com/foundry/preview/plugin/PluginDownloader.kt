@@ -30,6 +30,23 @@ object PluginDownloader {
     private const val DOWNLOAD_READ_MS = 60_000
 
     /**
+     * 安全校验：拒绝非 HTTPS 的远端 URL，防止中间人攻击替换插件文件。
+     * localhost/10.x.x.x/192.168.x.x 等本地地址允许 HTTP（仅调试/内网场景）。
+     */
+    private fun requireSecure(url: String) {
+        val lowered = url.lowercase()
+        if (!lowered.startsWith("https://") && !lowered.startsWith("http://localhost") &&
+            !lowered.startsWith("http://10.") && !lowered.startsWith("http://192.168.") &&
+            !lowered.startsWith("http://172.1") && !lowered.startsWith("http://127.")
+        ) {
+            throw SecurityException(
+                "Plugin download URL must use HTTPS for security: $url. " +
+                "Only localhost and private-network (RFC 1918) HTTP URLs are exempted."
+            )
+        }
+    }
+
+    /**
      * 智能下载入口。
      *
      * @param onProgress 进度回调 (bytesRead, totalBytes)；totalBytes 未知时为 -1。
@@ -102,6 +119,7 @@ object PluginDownloader {
 
     /** HEAD 探测：检查可达性并返回耗时（ms）；不可达返回 null。 */
     private fun probe(node: MirrorNode): Long? = runCatching {
+        requireSecure(node.url)
         val start = System.currentTimeMillis()
         val conn = (URL(node.url).openConnection() as HttpURLConnection).apply {
             requestMethod = "HEAD"
@@ -121,6 +139,7 @@ object PluginDownloader {
 
     /** 从单个 URL 下载到 target，支持进度回调。 */
     private fun downloadFromUrl(url: String, target: File, onProgress: ((Long, Long) -> Unit)?) {
+        requireSecure(url)
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = DOWNLOAD_CONNECT_MS
