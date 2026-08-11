@@ -68,6 +68,10 @@ object SimpleXmlReader {
         val attrs = mutableMapOf<String, String>()
         var i = 0
         val n = body.length
+        // body 以标签名开头（如 "Button android:text=..."），先跳过标签名及其后空白，
+        // 否则标签名会被误当作首个属性名、把真正的首个属性名当成它的值。
+        while (i < n && body[i] != ' ' && body[i] != '/' && body[i] != '>') i++
+        while (i < n && (body[i] == ' ' || body[i] == '\t')) i++
         while (i < n) {
             // 跳到属性名起始（字母或下划线）
             while (i < n && !body[i].isLetter() && body[i] != '_' && body[i] != '@') i++

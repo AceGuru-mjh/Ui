@@ -127,4 +127,257 @@ class ComposeSourceParserTest {
         val (roots, _) = parseOrThrow(src)
         assertEquals("#FFFF0000", roots.values.first().attributes["color"])
     }
+
+    @Test
+    fun `if control flow keeps only the taken branch`() {
+        val src = """
+            @Composable fun Home() {
+                Column {
+                    if (true) {
+                        Text("A")
+                    } else {
+                        Text("B")
+                    }
+                }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        val column = roots.values.first()
+        val children = column.children
+        assertEquals(1, children.size)
+        assertEquals("A", children[0].attributes["text"])
+    }
+
+    @Test
+    fun `if control flow with false condition takes else branch`() {
+        val src = """
+            @Composable fun Home() {
+                Column {
+                    if (false) {
+                        Text("A")
+                    } else {
+                        Text("B")
+                    }
+                }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        val column = roots.values.first()
+        assertEquals(1, column.children.size)
+        assertEquals("B", column.children[0].attributes["text"])
+    }
+
+    @Test
+    fun `for loop over literal list is statically expanded`() {
+        val src = """
+            @Composable fun Home() {
+                Column {
+                    for (i in listOf(1, 2, 3)) {
+                        Text("item")
+                    }
+                }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        val column = roots.values.first()
+        assertEquals(3, column.children.size)
+        column.children.forEach { assertEquals("Text", it.type) }
+    }
+
+    @Test
+    fun `multiple composable functions produce multiple roots`() {
+        val src = """
+            @Composable fun ScreenA() {
+                Text("a")
+            }
+            @Composable fun ScreenB() {
+                Text("b")
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals(2, roots.size)
+        assertTrue(roots.containsKey("ScreenA"))
+        assertTrue(roots.containsKey("ScreenB"))
+    }
+
+    @Test
+    fun `navigation bar and bottom navigation map to NavigationBar`() {
+        val src = """
+            @Composable fun Home() {
+                NavigationBar {
+                    NavigationBarItem(true, {}, label = { Text("Home") })
+                }
+            }
+        """
+        val (roots, issues) = parseOrThrow(src)
+        assertEquals("NavigationBar", roots.values.first().type)
+        assertTrue("NavigationBar must not be downgraded", issues.none { "Unsupported Composable '<NavigationBar>'" in it })
+    }
+
+    @Test
+    fun `alert dialog maps to AlertDialog`() {
+        val src = """
+            @Composable fun Home() {
+                AlertDialog(onDismissRequest = {}, confirmButton = { }, title = { Text("Title") })
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("AlertDialog", roots.values.first().type)
+    }
+
+    @Test
+    fun `badge maps to Badge`() {
+        val src = """
+            @Composable fun Home() {
+                Badge { Text("3") }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("Badge", roots.values.first().type)
+    }
+
+    @Test
+    fun `web view maps to RuntimeView with runtimeKind`() {
+        val src = """
+            @Composable fun Home() {
+                WebView(url = "https://example.com")
+            }
+        """
+        val (roots, issues) = parseOrThrow(src)
+        val root = roots.values.first()
+        assertEquals("RuntimeView", root.type)
+        assertEquals("webview", root.attributes["runtimeKind"])
+        assertTrue("runtime component must not be downgraded to Box", issues.none { "WebView" in it && "Box" in it })
+    }
+
+    @Test
+    fun `video view maps to RuntimeView with runtimeKind`() {
+        val src = """
+            @Composable fun Home() {
+                VideoView()
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        val root = roots.values.first()
+        assertEquals("RuntimeView", root.type)
+        assertEquals("videoview", root.attributes["runtimeKind"])
+    }
+
+    @Test
+    fun `navigation drawer maps to Drawer`() {
+        val src = """
+            @Composable fun Home() {
+                ModalNavigationDrawer(drawerContent = { Text("menu") }) { }
+            }
+        """
+        val (roots, issues) = parseOrThrow(src)
+        assertEquals("Drawer", roots.values.first().type)
+        assertTrue(issues.none { "Unsupported Composable '<Drawer>'" in it })
+    }
+
+    @Test
+    fun `snackbar maps to Snackbar`() {
+        val src = """
+            @Composable fun Home() {
+                Snackbar(action = { }, content = { Text("saved") })
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("Snackbar", roots.values.first().type)
+    }
+
+    @Test
+    fun `dropdown menu maps to DropdownMenu`() {
+        val src = """
+            @Composable fun Home() {
+                DropdownMenu(expanded = true, onDismissRequest = { }) {
+                    DropdownMenuItem(text = { Text("Edit") }, onClick = { })
+                }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("DropdownMenu", roots.values.first().type)
+    }
+
+    @Test
+    fun `modal bottom sheet maps to BottomSheet`() {
+        val src = """
+            @Composable fun Home() {
+                ModalBottomSheet(onDismissRequest = { }) { Text("sheet") }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("BottomSheet", roots.values.first().type)
+    }
+
+    @Test
+    fun `list item maps to ListItem`() {
+        val src = """
+            @Composable fun Home() {
+                LazyColumn {
+                    item { ListItem(headlineContent = { Text("Title") }) }
+                }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        val listItem = roots.values.first().children.first().children.first()
+        assertEquals("ListItem", listItem.type)
+    }
+
+    @Test
+    fun `range slider maps to RangeSlider`() {
+        val src = """
+            @Composable fun Home() {
+                RangeSlider(value = 0.2f..0.8f, onValueChange = { })
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("RangeSlider", roots.values.first().type)
+    }
+
+    @Test
+    fun `search bar maps to SearchBar`() {
+        val src = """
+            @Composable fun Home() {
+                SearchBar(query = "", onQueryChange = { }, onSearch = { }, active = false, onActiveChange = { }) { }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("SearchBar", roots.values.first().type)
+    }
+
+    @Test
+    fun `navigation rail maps to NavigationRail`() {
+        val src = """
+            @Composable fun Home() {
+                NavigationRail { }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("NavigationRail", roots.values.first().type)
+    }
+
+    @Test
+    fun `segmented button maps to SegmentedButton`() {
+        val src = """
+            @Composable fun Home() {
+                SingleChoiceSegmentedButtonRow {
+                    SegmentedButton(selected = true, onClick = { }) { Text("A") }
+                }
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("SegmentedButton", roots.values.first().type)
+    }
+
+    @Test
+    fun `top app bar maps to TopAppBar`() {
+        val src = """
+            @Composable fun Home() {
+                TopAppBar(title = { Text("App") })
+            }
+        """
+        val (roots, _) = parseOrThrow(src)
+        assertEquals("TopAppBar", roots.values.first().type)
+    }
 }

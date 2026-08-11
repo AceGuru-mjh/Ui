@@ -97,6 +97,8 @@ object ProjectIndexer {
                 val content = file.readText(Charsets.UTF_8)
                 if (content.isNotBlank()) {
                     ArtifactDetector.detectFromContent(content)?.let { return it }
+                    // 内容探测无法归类但含控制字符 → 视为二进制（避免伪装成文本被预览）
+                    if (ArtifactDetector.looksBinary(content)) return ArtifactKind.UNKNOWN_BINARY
                 }
             }
         }

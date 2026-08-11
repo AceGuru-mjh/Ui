@@ -226,7 +226,7 @@ class XmlLayoutParser {
             "ProgressBar" -> "ProgressIndicator"
             "CheckBox" -> "Checkbox"
             "RadioButton" -> "RadioButton"
-            "RadioGroup" -> "Column"
+            "RadioGroup" -> if ((attrs["android:orientation"] ?: "vertical") == "horizontal") "Row" else "Column"
             "Switch" -> "Switch"
             "SwitchCompat" -> "Switch"
             "com.google.android.material.switchMaterial.SwitchMaterial" -> "Switch"
@@ -243,6 +243,18 @@ class XmlLayoutParser {
             "androidx.recyclerview.widget.RecyclerView" -> "LazyColumn"
             "androidx.viewpager2.widget.ViewPager2" -> "LazyColumn"
             "androidx.swiperefreshlayout.widget.SwipeRefreshLayout" -> "Scroll"
+            // 运行时组件：静态预览无法真实呈现，映射到占位渲染器
+            "WebView" -> "RuntimeView"
+            "VideoView" -> "RuntimeView"
+            "SurfaceView" -> "RuntimeView"
+            "TextureView" -> "RuntimeView"
+            // 抽屉：DrawerLayout 容器 + NavigationView 侧边菜单
+            "androidx.drawerlayout.widget.DrawerLayout" -> "Box"
+            "com.google.android.material.navigation.NavigationView" -> "Drawer"
+            "com.google.android.material.navigation.NavigationRailView" -> "NavigationRail"
+            "androidx.appcompat.widget.Toolbar" -> "TopAppBar"
+            "androidx.appcompat.widget.SearchView" -> "SearchBar"
+            "SearchView" -> "SearchBar"
             else -> "Box"
         }
 
@@ -324,6 +336,13 @@ class XmlLayoutParser {
 
         attrs["android:onClick"]?.let { elementAttrs["onClick"] = it }
 
+        // 可见性：gone 在渲染端应跳过/折叠，invisible 保留占位，visible 为默认
+        attrs["android:visibility"]?.let { elementAttrs["visibility"] = it }
+
+        // ConstraintLayout 偏置（bias）：提取供更精确的对齐还原（align 已由 applyConstraintAlign 推导）
+        attrs["app:layout_constraintHorizontal_bias"]?.let { elementAttrs["constraintBiasHorizontal"] = it }
+        attrs["app:layout_constraintVertical_bias"]?.let { elementAttrs["constraintBiasVertical"] = it }
+
         attrs["android:maxLines"]?.let { elementAttrs["maxLines"] = it }
         attrs["android:minLines"]?.let { elementAttrs["minLines"] = it }
         attrs["android:lines"]?.let { elementAttrs["lines"] = it }
@@ -369,6 +388,11 @@ class XmlLayoutParser {
 
         attrs["android:layout_weight"]?.let { w -> w.toFloatOrNull()?.let { elementAttrs["weight"] = it.toString() } }
         attrs["android:weightSum"]?.let { s -> s.toFloatOrNull()?.let { elementAttrs["weightSum"] = it.toString() } }
+
+        // 运行时组件：记录原始标签，供 RuntimeViewRenderer 给出精确占位提示
+        if (type == "RuntimeView" && !elementAttrs.containsKey("runtimeKind")) {
+            elementAttrs["runtimeKind"] = tag.lowercase()
+        }
 
         // ConstraintLayout 约束近似还原：把 app:layout_constraint*_to*Of="parent" 转成 Box 子节点 align
         modifier = applyConstraintAlign(attrs, modifier)

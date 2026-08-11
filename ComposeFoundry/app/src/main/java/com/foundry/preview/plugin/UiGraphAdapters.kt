@@ -147,7 +147,11 @@ fun toUiElement(node: UiNode): UiElement {
         alpha = mod?.alpha
     )
     val attributes = node.attributes.mapValues { (_, v) -> v.toRawString() }
-    val children = node.children.map { toUiElement(it) }
+    // visibility=gone：节点不参与渲染，在唯一出口（UiElement 树）剔除，
+    // 这样所有 21 个 ComponentRenderer 无需逐个处理。invisible 仍保留占位。
+    val children = node.children
+        .filter { it.attributes["visibility"]?.raw != "gone" }
+        .map { toUiElement(it) }
 
     return UiElement(
         type = node.type,

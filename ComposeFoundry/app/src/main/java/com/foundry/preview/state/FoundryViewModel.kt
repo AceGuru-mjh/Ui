@@ -710,6 +710,26 @@ class FoundryViewModel : ViewModel() {
     /** 检查更新：拉取远端仓库索引并与已安装版本比对。 */
     fun checkForUpdates(context: Context) = pluginMarketplace.checkForUpdates(context)
 
+    /**
+     * 检查更新：拉取远端仓库索引并与已安装版本比对。
+     * PluginCard 已基于 installedVersion != manifest.version 自动显示"更新"按钮，
+     * 因此本方法只需刷新 [_pluginRepository]（优先用索引声明的 repositoryUrl，否则默认地址）。
+     * 失败时静默沿用本地 assets 索引，不影响现有功能。
+     */
+    fun checkForUpdates(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val url = _pluginRepository.value?.repositoryUrl
+                ?: "https://plugins.composefoundry.dev/index.json"
+            runCatching { PluginRepositoryProvider.fetchRemote(url) }
+                .onSuccess {
+                    _pluginRepository.value = it
+                    refreshInstalledPlugins()
+                    _statusMessage.value = "已检查更新：远端 ${it.plugins.size} 个插件可用"
+                }
+                .onFailure { _statusMessage.value = "检查更新失败（沿用本地索引）: ${it.message}" }
+        }
+    }
+
     /** 重新同步已注册插件（内置 + 动态加载）的清单，供 UI 展示。 */
     fun refreshInstalledPlugins() = pluginMarketplace.refreshInstalledPlugins()
 
