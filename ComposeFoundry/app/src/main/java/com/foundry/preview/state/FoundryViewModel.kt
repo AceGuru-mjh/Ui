@@ -11,7 +11,6 @@ import com.foundry.preview.dsl.UiDocument
 import com.foundry.preview.project.ProjectIndex
 import com.foundry.preview.project.ProjectIndexer
 import com.foundry.core.plugin.ArtifactDetector
-import com.foundry.core.plugin.ArtifactKind
 import com.foundry.core.plugin.ParseResult
 import com.foundry.core.plugin.PluginDescriptor
 import com.foundry.core.plugin.PluginManager
@@ -19,17 +18,9 @@ import com.foundry.core.plugin.PluginRepositoryIndex
 import com.foundry.core.plugin.PreviewContext
 import com.foundry.core.plugin.RemotePluginManifest
 import com.foundry.core.plugin.UiArtifact
-import com.foundry.preview.plugin.DynamicPluginManager
-import com.foundry.preview.plugin.PluginDownloader
-import com.foundry.preview.plugin.PluginRepositoryProvider
 import com.foundry.core.uimodel.ResourceTable
 import com.foundry.core.uimodel.UiCapability
 import com.foundry.core.uimodel.UiGraph
-import com.foundry.core.renderer.RenderRequest
-import com.foundry.core.renderer.RenderResult
-import com.foundry.core.renderer.RenderStatus
-import com.foundry.preview.plugin.LocalSdkScanner
-import com.foundry.preview.renderer.RendererClient
 import com.foundry.preview.project.buildResourceTable
 import com.foundry.preview.project.findAndroidProjectRoot
 import com.foundry.preview.engine.DiagnosticsEngine
@@ -134,25 +125,25 @@ class FoundryViewModel : ViewModel() {
     private val _installingPluginIds = MutableStateFlow<Set<String>>(emptySet())
     val installingPluginIds: StateFlow<Set<String>> = _installingPluginIds.asStateFlow()
 
-    // ── 多进程沙箱渲染 ──
-    private var rendererClient: RendererClient? = null
-    private var rendererRequestCounter = 0L
+    // ── 委托（单一职责拆分） ──
 
-    /** 渲染进程返回的位图（主进程 UI 通过文件路径异步加载后展示）。 */
-    private val _rendererBitmap = MutableStateFlow<Bitmap?>(null)
-    val rendererBitmap: StateFlow<Bitmap?> = _rendererBitmap.asStateFlow()
+    /** 动态插件市场操作委托 */
+    lateinit var pluginMarketplace: PluginMarketplaceDelegate
+        private set
 
-    /** 最近一次 IPC 渲染诊断信息。 */
-    private val _rendererDiagnostics = MutableStateFlow("")
-    val rendererDiagnostics: StateFlow<String> = _rendererDiagnostics.asStateFlow()
+    /** 文件导入/导出操作委托 */
+    lateinit var fileIo: FileIoDelegate
+        private set
 
-    /** IPC 渲染是否正在进行中。 */
-    private val _isRendererBusy = MutableStateFlow(false)
-    val isRendererBusy: StateFlow<Boolean> = _isRendererBusy.asStateFlow()
+    /** 多进程沙箱 IPC 渲染委托 */
+    lateinit var ipcRender: IpcRenderDelegate
+        private set
 
-    /** 渲染进程内存占用（MB），-1 表示未连接。 */
-    private val _rendererMemoryMb = MutableStateFlow(-1)
-    val rendererMemoryMb: StateFlow<Int> = _rendererMemoryMb.asStateFlow()
+    // ── IPC 渲染状态（委托给 IpcRenderDelegate，ViewModel 暴露只读流） ──
+    val rendererBitmap: StateFlow<Bitmap?> get() = ipcRender.rendererBitmap
+    val rendererDiagnostics: StateFlow<String> get() = ipcRender.rendererDiagnostics
+    val isRendererBusy: StateFlow<Boolean> get() = ipcRender.isRendererBusy
+    val rendererMemoryMb: StateFlow<Int> get() = ipcRender.rendererMemoryMb
 
     // 任务：Android 资源引用解析——基于当前文件所在工程根扫描得到的资源表，供插件解析 @string/@color/@dimen。
     private var _resourceTable: ResourceTable = ResourceTable()
@@ -512,6 +503,49 @@ class FoundryViewModel : ViewModel() {
     private var saveJob: Job? = null
     private val saveScope = CoroutineScope(Dispatchers.IO)
 
+    init {
+        // 委托初始化：将插件市场、文件 I/O、IPC 渲染职责从 ViewModel 中剥离，
+        // 遵循单一职责原则，提升可测试性。
+        pluginMarketplace = PluginMarketplaceDelegate(
+            scope = viewModelScope,
+            _pluginRepository = _pluginRepository,
+            _installedPlugins = _installedPlugins,
+            _installingPluginIds = _installingPluginIds,
+            onStatus = { _statusMessage.value = it }
+        )
+        fileIo = FileIoDelegate(
+            scope = viewModelScope,
+            _resourceTable = { _resourceTable },
+            _updateResourceTable = { _resourceTable = it },
+            onStatus = { _statusMessage.value = it },
+            onCodeReplaced = { code ->
+                undoStack.add(_code.value)
+                if (undoStack.size > 50) undoStack.removeAt(0)
+                redoStack.clear()
+                _code.value = code
+                render()
+            },
+            onGraphImported = { serializedCode, doc, graph ->
+                _uiGraph.value = graph
+                _document.value = doc
+                undoStack.add(_code.value)
+                if (undoStack.size > 50) undoStack.removeAt(0)
+                redoStack.clear()
+                _code.value = serializedCode
+                _renderMode.value = RenderMode.JSON_DSL
+            },
+            onXmlFallback = { xmlContent, reason ->
+                _renderMode.value = RenderMode.XML_DIRECT
+                _xmlContent.value = xmlContent
+                _statusMessage.value = "XML 直接预览模式（$reason）"
+            }
+        )
+        ipcRender = IpcRenderDelegate(
+            scope = viewModelScope,
+            onStatus = { _statusMessage.value = it }
+        )
+    }
+
     companion object {
         private val KEY_DOCUMENTS = stringPreferencesKey("open_documents")
         private val KEY_ACTIVE_INDEX = intPreferencesKey("active_doc_index")
@@ -652,106 +686,15 @@ class FoundryViewModel : ViewModel() {
         }
     }
 
-    fun importJsonFromUri(context: Context, uri: Uri) {
-        try {
-            val content = context.contentResolver.openInputStream(uri)
-                ?.bufferedReader()?.use { it.readText() }
-            if (content != null) {
-                undoStack.add(_code.value)
-                redoStack.clear()
-                _code.value = content
-                render()
-                _statusMessage.value = "JSON imported successfully"
-            }
-        } catch (e: Exception) {
-            _statusMessage.value = "JSON import failed: ${e.message}"
-        }
-    }
+    // ────────────── 文件导入/导出（委托给 FileIoDelegate） ──────────────
 
-    fun importXmlFromUri(context: Context, uri: Uri) {
-        val xmlContent = try {
-            context.contentResolver.openInputStream(uri)
-                ?.bufferedReader()?.use { it.readText() }
-        } catch (e: Exception) {
-            null
-        }
-        if (xmlContent == null) {
-            _statusMessage.value = "Failed to read XML file"
-            return
-        }
+    fun importJsonFromUri(context: Context, uri: Uri) = fileIo.importJsonFromUri(context, uri)
 
-        // 统一走插件管线：选中 Android XML 插件解析为 UiGraph，再转回 DSL 渲染。
-        viewModelScope.launch {
-            // 若能通过 uri 路径解析出工程根，则刷新资源表（供 @string/@color/@dimen 解析）
-            uri.path?.let { p -> findAndroidProjectRoot(File(p)) }
-                ?.let { _resourceTable = buildResourceTable(it) }
-            val baseArtifact = UiArtifact(
-                id = "imported-xml",
-                uri = uri.toString(),
-                displayName = "imported xml",
-                content = xmlContent,
-                extension = "xml"
-            )
-            val artifact = baseArtifact.copy(detectedKind = ArtifactDetector.detect(baseArtifact))
-            val plugin = PluginManager.selectFor(
-                artifact,
-                requires = setOf(UiCapability.RENDER_INTERACTIVE)
-            )
-            if (plugin == null) {
-                fallbackXmlDirect(xmlContent, "无匹配插件")
-                return@launch
-            }
-            when (val result = plugin.parse(artifact, PreviewContext(resourceTable = _resourceTable))) {
-                is ParseResult.Success -> applyImportedGraph(result.graph, xmlContent)
-                is ParseResult.Partial -> applyImportedGraph(result.graph, xmlContent)
-                is ParseResult.Failed -> fallbackXmlDirect(xmlContent, "插件解析失败")
-            }
-        }
-    }
+    fun importXmlFromUri(context: Context, uri: Uri) = fileIo.importXmlFromUri(context, uri)
 
-    private fun applyImportedGraph(graph: UiGraph?, xmlContent: String) {
-        val g = graph ?: run {
-            fallbackXmlDirect(xmlContent, "无图")
-            return
-        }
-        _uiGraph.value = g
-        val doc = toUiDocument(g)
-        val jsonString = prettyJson.encodeToString(doc)
-        undoStack.add(_code.value)
-        redoStack.clear()
-        _code.value = jsonString
-        _document.value = doc
-        _renderMode.value = RenderMode.JSON_DSL
-        _statusMessage.value = "XML imported via ${g.meta.parser}"
-    }
+    fun exportJsonToUri(context: Context, uri: Uri) = fileIo.exportJsonToUri(context, uri, _code.value)
 
-    private fun fallbackXmlDirect(xmlContent: String, reason: String) {
-        _renderMode.value = RenderMode.XML_DIRECT
-        _xmlContent.value = xmlContent
-        _statusMessage.value = "XML 直接预览模式（$reason）"
-    }
-
-    fun exportJsonToUri(context: Context, uri: Uri) {
-        try {
-            context.contentResolver.openOutputStream(uri)?.use { output ->
-                output.write(_code.value.toByteArray(Charsets.UTF_8))
-            }
-            _statusMessage.value = "JSON exported successfully"
-        } catch (e: Exception) {
-            _statusMessage.value = "JSON export failed: ${e.message}"
-        }
-    }
-
-    fun exportPngToUri(context: Context, uri: Uri, bitmap: Bitmap) {
-        try {
-            context.contentResolver.openOutputStream(uri)?.use { output ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-            }
-            _statusMessage.value = "PNG exported successfully"
-        } catch (e: Exception) {
-            _statusMessage.value = "PNG export failed: ${e.message}"
-        }
-    }
+    fun exportPngToUri(context: Context, uri: Uri, bitmap: Bitmap) = fileIo.exportPngToUri(context, uri, bitmap)
 
     fun clearStatus() {
         _statusMessage.value = ""
@@ -760,224 +703,41 @@ class FoundryViewModel : ViewModel() {
     // ───────────────────────── 动态插件市场 ─────────────────────────
 
     /** 加载插件仓库索引（优先内置 assets，离线可用）并刷新已注册插件清单。 */
-    fun loadPluginRepository(context: Context) {
-        viewModelScope.launch(Dispatchers.IO) {
-            _pluginRepository.value = PluginRepositoryProvider.loadFromAssets(context)
-            refreshInstalledPlugins()
-        }
-    }
+    fun loadPluginRepository(context: Context) = pluginMarketplace.loadPluginRepository(context)
 
     /** 从远端 URL 拉取仓库索引（网络）。 */
-    fun loadPluginRepositoryRemote(url: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            runCatching { PluginRepositoryProvider.fetchRemote(url) }
-                .onSuccess { _pluginRepository.value = it; refreshInstalledPlugins() }
-                .onFailure { _statusMessage.value = "仓库索引拉取失败: ${it.message}" }
-        }
-    }
+    fun loadPluginRepositoryRemote(url: String) = pluginMarketplace.loadPluginRepositoryRemote(url)
 
-    /**
-     * 检查更新：拉取远端仓库索引并与已安装版本比对。
-     * PluginCard 已基于 installedVersion != manifest.version 自动显示"更新"按钮，
-     * 因此本方法只需刷新 [_pluginRepository]（优先用索引声明的 repositoryUrl，否则默认地址）。
-     * 失败时静默沿用本地 assets 索引，不影响现有功能。
-     */
-    fun checkForUpdates(context: Context) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val url = _pluginRepository.value?.repositoryUrl
-                ?: "https://plugins.composefoundry.dev/index.json"
-            runCatching { PluginRepositoryProvider.fetchRemote(url) }
-                .onSuccess {
-                    _pluginRepository.value = it
-                    refreshInstalledPlugins()
-                    _statusMessage.value = "已检查更新：远端 ${it.plugins.size} 个插件可用"
-                }
-                .onFailure { _statusMessage.value = "检查更新失败（沿用本地索引）: ${it.message}" }
-        }
-    }
+    /** 检查更新：拉取远端仓库索引并与已安装版本比对。 */
+    fun checkForUpdates(context: Context) = pluginMarketplace.checkForUpdates(context)
 
     /** 重新同步已注册插件（内置 + 动态加载）的清单，供 UI 展示。 */
-    fun refreshInstalledPlugins() {
-        _installedPlugins.value = PluginManager.all().map { it.descriptor }
-    }
+    fun refreshInstalledPlugins() = pluginMarketplace.refreshInstalledPlugins()
 
     /** 完整流程：多源测速下载（带缓存 + 进度）→ SHA-256 校验 → DexClassLoader 加载 → 热注册。 */
-    fun installPlugin(context: Context, manifest: RemotePluginManifest) {
-        viewModelScope.launch(Dispatchers.IO) {
-            _installingPluginIds.value = _installingPluginIds.value + manifest.id
-            try {
-                val file = PluginDownloader.downloadSmart(context, manifest)
-                DynamicPluginManager.install(context, manifest, file)
-                refreshInstalledPlugins()
-                _statusMessage.value = "已安装插件 ${manifest.displayName} v${manifest.version}"
-            } catch (e: Exception) {
-                _statusMessage.value = "插件安装失败: ${e.message}"
-            } finally {
-                _installingPluginIds.value = _installingPluginIds.value - manifest.id
-            }
-        }
-    }
+    fun installPlugin(context: Context, manifest: RemotePluginManifest) = pluginMarketplace.installPlugin(context, manifest)
 
     /** 卸载插件：触发 onDestroy 生命周期清理 + 删除本地 .dex + 从注册中心移除。 */
-    fun uninstallPlugin(context: Context, id: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            if (DynamicPluginManager.uninstall(context, id)) {
-                refreshInstalledPlugins()
-                _statusMessage.value = "已卸载插件 $id（重启应用可彻底释放内存）"
-            }
-        }
-    }
+    fun uninstallPlugin(context: Context, id: String) = pluginMarketplace.uninstallPlugin(context, id)
 
-    /**
-     * 本地插件热加载（开发者调试用）：从文档选择器读取 dex/jar/apk 并加载。
-     * 约定入口类为 com.foundry.plugin.LocalPlugin，并跳过 SHA-256 校验。
-     */
-    fun installPluginFromUri(context: Context, uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val name = uri.lastPathSegment
-                    ?.substringAfterLast('/')
-                    ?.replace(Regex("\\.(dex|jar|apk)$"), "Plugin")
-                    ?: "LocalPlugin"
-                val target = File(DynamicPluginManager.pluginsDir(context), "$name/$name.dex")
-                target.parentFile?.mkdirs()
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    target.outputStream().use { out -> input.copyTo(out) }
-                }
-                val manifest = RemotePluginManifest(
-                    id = "local.$name",
-                    version = "local",
-                    displayName = name,
-                    downloadUrl = "",
-                    sha256 = "",
-                    entryClass = "com.foundry.plugin.LocalPlugin"
-                )
-                DynamicPluginManager.install(context, manifest, target, skipShaCheck = true)
-                refreshInstalledPlugins()
-                _statusMessage.value = "已加载本地插件 $name"
-            } catch (e: Exception) {
-                _statusMessage.value = "本地插件加载失败: ${e.message}"
-            }
-        }
-    }
+    /** 本地插件热加载（开发者调试用）：从文档选择器读取 dex/jar/apk 并加载。 */
+    fun installPluginFromUri(context: Context, uri: Uri) = pluginMarketplace.installPluginFromUri(context, uri)
 
-    // ───────────────────────── 多进程沙箱 IPC 渲染 ─────────────────────────
+    // ────────────── 多进程沙箱 IPC 渲染（委托给 IpcRenderDelegate） ──────────────
 
-    /**
-     * 绑定渲染进程（:renderer），建立 AIDL 通道。
-     * 应在 Activity onStart 或用户首次触发渲染前调用。
-     */
-    fun bindRenderer(context: Context) {
-        if (rendererClient?.connected == true) return
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val client = RendererClient(context)
-                client.bind()
-                rendererClient = client
-                _rendererMemoryMb.value = client.getRendererMemoryMb()
-                _statusMessage.value = "已连接渲染进程 (:renderer)"
-            } catch (e: Exception) {
-                _statusMessage.value = "渲染进程连接失败: ${e.message}"
-            }
-        }
-    }
+    /** 绑定渲染进程（:renderer），建立 AIDL 通道。 */
+    fun bindRenderer(context: Context) = ipcRender.bindRenderer(context)
 
     /** 解绑渲染进程，释放 :renderer 进程资源。 */
-    fun unbindRenderer() {
-        rendererClient?.unbind()
-        rendererClient = null
-        _rendererMemoryMb.value = -1
-    }
+    fun unbindRenderer() = ipcRender.unbindRenderer()
 
     /**
-     * IPC 渲染（简化路径）：将当前源码通过 `renderAndCapture` 直接发送到 :renderer 进程，
-     * 渲染进程启动透明 RenderCaptureActivity 执行 View 渲染 + 截屏（规避 Service 无 Window 限制），
-     * 返回 PNG 文件路径 → 主进程解码 Bitmap。
-     *
-     * ## 架构
-     * Service(无 Window) → startActivity(RenderCaptureActivity) → DexClassLoader 加载 SDK
-     * → 反射创建 View → attach Window → drawToBitmap → PNG 文件 → latch.countDown()
-     * → Service 拿到 outputPath → Binder 返回 String(文件路径，非 byte[]) → 主进程 decodeFile
-     *
-     * 如果无 SDK 可用（空壳 IPC），渲染进程会返回诊断占位 Bitmap，证明链路通畅。
+     * IPC 渲染：将当前源码发送到 :renderer 进程进行沙箱渲染 + 截屏。
      */
-    fun renderViaIpc(context: Context) {
-        val source = _code.value
-        if (source.isBlank()) {
-            _statusMessage.value = "No source code to render"
-            return
-        }
-
-        viewModelScope.launch(Dispatchers.IO) {
-            _isRendererBusy.value = true
-            _rendererDiagnostics.value = "正在连接渲染进程..."
-
-            // 确保已绑定
-            if (rendererClient?.connected != true) {
-                try {
-                    bindRenderer(context)
-                    kotlinx.coroutines.delay(500)
-                } catch (_: Exception) { }
-            }
-
-            val client = rendererClient
-            if (client?.connected != true) {
-                _isRendererBusy.value = false
-                _rendererDiagnostics.value = "渲染进程未连接"
-                _statusMessage.value = "渲染进程未连接，请重试"
-                return@launch
-            }
-
-            try {
-                // 自动选择 SDK：优先扫描本地 foundry-pack.json
-                val availableSdks = getAvailableSdkIds(context)
-                val sdkId = availableSdks.firstOrNull() ?: "no-sdk"
-                val startMs = System.currentTimeMillis()
-
-                _rendererDiagnostics.value = "已发送渲染请求 (sdkId=$sdkId, ${availableSdks.size} SDK available)"
-                val pngPath = client.renderAndCapture(context, source, sdkId)
-                val elapsed = System.currentTimeMillis() - startMs
-
-                if (pngPath != null) {
-                    val bmp = client.loadBitmapFromPath(pngPath)
-                    _rendererBitmap.value = bmp
-                    _rendererDiagnostics.value = buildString {
-                        append("渲染完成 (${elapsed}ms")
-                        val fileSize = runCatching { java.io.File(pngPath).length() }.getOrDefault(0L)
-                        if (fileSize > 0) append(", ${fileSize / 1024}KB")
-                        append(", 内存: ${client.getRendererMemoryMb()}MB)")
-                    }
-                    _statusMessage.value = "沙箱渲染完成 (${elapsed}ms)"
-                } else {
-                    _rendererBitmap.value = null
-                    _rendererDiagnostics.value = "渲染失败/超时 (${elapsed}ms)"
-                    _statusMessage.value = "渲染进程返回 null（可能超时或SDK加载失败）"
-                }
-            } catch (e: Exception) {
-                _rendererBitmap.value = null
-                _rendererDiagnostics.value = "IPC 渲染异常: ${e.message}"
-                _statusMessage.value = "渲染进程异常: ${e.message}"
-            } finally {
-                _isRendererBusy.value = false
-                _rendererMemoryMb.value = client.getRendererMemoryMb()
-            }
-        }
-    }
-
-    /** 获取本地可用的 SDK ID 列表（从 foundry-pack.json 扫描结果）。 */
-    private fun getAvailableSdkIds(context: Context): List<String> {
-        return try {
-            LocalSdkScanner.scan(LocalSdkScanner.defaultScanDirs(context)).map { it.id }
-        } catch (_: Exception) {
-            emptyList()
-        }
-    }
+    fun renderViaIpc(context: Context) = ipcRender.renderViaIpc(context, _code.value)
 
     /** 清除 IPC 渲染缓存（切换 tab 时调用）。 */
-    fun clearRendererState() {
-        _rendererBitmap.value = null
-        _rendererDiagnostics.value = ""
-    }
+    fun clearRendererState() = ipcRender.clearRendererState()
 
     private fun scheduleAutoSave() {
         saveJob?.cancel()

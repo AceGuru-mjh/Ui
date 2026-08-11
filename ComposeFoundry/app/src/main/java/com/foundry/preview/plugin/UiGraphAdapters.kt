@@ -15,6 +15,20 @@ import com.foundry.preview.engine.DiagnosticLevel as EngineLevel
  * 方向：
  *  - [toUiNode]   DSL 文档  →  UiGraph（供任意后端消费 / 跨插件共享）
  *  - [toUiElement] UiGraph  →  DSL 元素（供现有 ComponentRenderer 渲染，避免重写渲染层）
+ *
+ * ## 技术债务：Strangler Pattern 过渡层
+ *
+ * 当前新旧两套渲染逻辑并存，UiGraph 通过此适配器桥接回 legacy UiDocument/UiElement
+ * （"绞杀者模式"）。这增加了系统复杂度和维护成本：
+ *
+ * 1. **信息丢失**：规范化 UiGraph 的某些语义（层级关系、置信度、诊断上下文）在
+ *    转换为扁平 DSL 模型时丢失，导致不应有的诊断降级。
+ * 2. **双轨维护**：ComponentRenderer 仍消费 UiElement，新增组件类型需同时适配两个模型。
+ * 3. **去除计划**：待 ComponentRenderer 直接消费 UiNode 后（Stage 3 完成），
+ *    此文件连同 toUiElement/toUiDocument 适配链可整体移除。
+ *    目标里程碑：renderer 接口改为 `Render(UiNode, ...)` 时即可解耦。
+ *
+ * @see com.foundry.preview.sandbox.PreviewSurface Stage 3 渲染源说明
  */
 
 private fun inferUiValue(key: String, raw: String): UiValue {

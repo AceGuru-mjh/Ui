@@ -1,48 +1,7 @@
 {
   "repositoryUrl": "https://plugins.composefoundry.dev/index.json",
-  "updatedAt": "2026-08-10",
+  "updatedAt": "2026-08-11",
   "plugins": [
-    {
-      "id": "com.foundry.plugin.apk",
-      "version": "0.1.0",
-      "displayName": "APK 解析器",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "entryClass": "com.foundry.plugin.apk.ApkFormatPlugin",
-      "mirrors": [
-        { "url": "https://plugins.composefoundry.dev/com.foundry.plugin.apk-0.1.0.dex", "type": "SERVER", "priority": 0 },
-        { "url": "https://github.com/AceGuru-mjh/Ui/releases/download/v0.1.0/apk-plugin.dex", "type": "GITHUB_RELEASE", "priority": 1 },
-        { "url": "https://cdn.jsdelivr.net/gh/AceGuru-mjh/Ui@main/releases/apk-plugin.dex", "type": "CDN", "priority": 2 }
-      ],
-      "minSdk": 26,
-      "description": "按需下载的 APK/AAB 二进制资源解析插件。体型较大，故不内置于主程序（演示条目，需自建分发服务）。"
-    },
-    {
-      "id": "com.foundry.plugin.compose.runtime",
-      "version": "0.2.0",
-      "displayName": "Compose 运行时渲染器",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "entryClass": "com.foundry.plugin.compose.runtime.ComposeRuntimePlugin",
-      "mirrors": [
-        { "url": "https://plugins.composefoundry.dev/com.foundry.plugin.compose.runtime-0.2.0.dex", "type": "SERVER" },
-        { "url": "https://github.com/AceGuru-mjh/Ui/releases/download/v0.2.0/compose-runtime.dex", "type": "GITHUB_RELEASE" }
-      ],
-      "minSdk": 31,
-      "minCoreVersion": "0.2.0",
-      "description": "真正执行 Compose 代码（沙箱）的渲染插件，用于反映运行时状态/条件分支（演示条目）。"
-    },
-    {
-      "id": "com.foundry.plugin.ai.vision",
-      "version": "0.1.0",
-      "displayName": "AI 视觉逆向引擎",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "entryClass": "com.foundry.plugin.ai.VisionInferencePlugin",
-      "mirrors": [
-        { "url": "https://plugins.composefoundry.dev/com.foundry.plugin.ai.vision-0.1.0.dex", "type": "SERVER" }
-      ],
-      "minSdk": 31,
-      "minCoreVersion": "0.2.0",
-      "description": "端侧视觉模型，将截图/APK 截图逆向还原为 UiGraph（文章"超纲拓展：创新 1"）。"
-    },
     {
       "id": "com.foundry.plugin.manifest",
       "version": "1.0.0",
@@ -50,10 +9,10 @@
       "sha256": "REPLACE_WITH_REAL_SHA256_AFTER_BUILD",
       "entryClass": "com.foundry.plugin.version.ManifestPlugin",
       "mirrors": [
-        { "url": "http://192.168.1.100:8080/plugin-manifest.apk", "type": "SERVER", "region": "LAN", "priority": 1 }
+        { "url": "https://github.com/AceGuru-mjh/Ui/releases/download/v0.3.0/plugin-manifest.apk", "type": "GITHUB_RELEASE", "priority": 0 }
       ],
       "minSdk": 26,
-      "description": "真实格式解析器：解析 AndroidManifest.xml 提取包名/权限/组件。演示 A 类网络下发的格式补丁。替换 sha256 与局域网 IP。"
+      "description": "真实格式解析器：解析 AndroidManifest.xml 提取包名/权限/组件。A 类网络下发的格式补丁，需构建 apk 并上传 release 后替换 sha256。"
     }
   ]
 }

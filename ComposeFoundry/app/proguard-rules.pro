@@ -34,3 +34,44 @@
 -dontwarn androidx.compose.runtime.**
 -keepattributes RuntimeVisibleAnnotations,AnnotationDefault
 
+# =============================================
+# Dynamic Plugin Loading: DexClassLoader + Reflection
+# =============================================
+# DynamicPluginManager uses DexClassLoader.loadClass() + getDeclaredConstructor().newInstance()
+# to hot-load plugins at runtime. R8 may strip or obfuscate the no-arg constructors
+# and entry-class metadata of UiFormatPlugin implementations, causing
+# NoSuchMethodException / ClassNotFoundException in production builds.
+#
+# Strategy: keep all UiFormatPlugin implementations and their public constructors
+# so the parent ClassLoader can resolve the plugin contract when the plugin's
+# DexClassLoader attempts to instantiate them.
+
+# Keep the plugin SDK contract interface itself (resolved by parent CL)
+-keep interface com.foundry.core.plugin.UiFormatPlugin { *; }
+
+# Keep all concrete UiFormatPlugin classes and their no-arg constructors
+-keep class * extends com.foundry.core.plugin.UiFormatPlugin {
+    <init>();
+    <init>(...);
+}
+
+# Offline renderer plugins: SDK packs loaded via IRenderEngine / DexClassLoader in :renderer process
+-keep interface com.foundry.core.renderer.IRenderEngine { *; }
+-keep class * extends com.foundry.core.renderer.IRenderEngine {
+    <init>();
+    <init>(...);
+}
+
+# Local plugin hot-load entry point (com.foundry.plugin.LocalPlugin)
+-keep class com.foundry.plugin.** { *; }
+
+# ─────────────────────────────────────────────
+# Plugin DEX raw preservation (packagePlugin builds)
+# ─────────────────────────────────────────────
+# When building DEX artifacts for the offline marketplace, these modules
+# must NOT be minified/obfuscated because they will be loaded via DexClassLoader
+# by other processes. Keep the entire plugin package structure.
+-keep class com.foundry.plugin.simplejson.** { *; }
+-keep class com.foundry.plugin.compose.** { *; }
+
+

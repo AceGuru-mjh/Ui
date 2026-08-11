@@ -57,6 +57,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.drawToBitmap
+import com.foundry.preview.engine.DiagnosticsEngine
 import com.foundry.preview.engine.RendererManager
 import com.foundry.preview.engine.XmlDirectPreview
 import com.foundry.preview.sandbox.PreviewSurface

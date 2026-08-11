@@ -1,17 +1,10 @@
 {
-  "id": "com.foundry.sdk.compose_runtime",
-  "version": "1.6.0",
+  "id": "com.foundry.plugin.composedsl",
+  "version": "1.0.0",
   "type": "VIEW_RENDERER",
   "entryClass": "com.foundry.plugin.composedsl.ComposeDslRenderEngine",
-  "libraries": [
-    "libs/plugin-composedsl.dex",
-    "libs/compose-runtime.dex",
-    "libs/compose-ui.dex",
-    "libs/compose-foundation.dex",
-    "libs/compose-material3.dex",
-    "libs/compose-animation.dex"
-  ],
+  "libraries": ["classes.jar"],
   "minCoreVersion": "0.2.0",
   "minSdk": 26,
-  "description": "真实 Compose 重型渲染离线包模板。用 tools/build_offline_pack.sh 生成 libs/*.dex 后，adb push 整个目录到 Android/data/<pkg>/files/FoundrySDK/，:renderer 进程即可按 libraries[] 加载并渲染。"
+  "description": "Compose JSON DSL 离线渲染插件。通过 ./gradlew :plugins:plugin-compose-dsl:packagePlugin 构建 DEX 产物，然后 adb push 到设备 FoundrySDK/ 目录。注意：Compose 运行时由父 ClassLoader (:renderer 进程 CL) 提供，使用 compileOnly 策略，无需打包进插件。"
 }
