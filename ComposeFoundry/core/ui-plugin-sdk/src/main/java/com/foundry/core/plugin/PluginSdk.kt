@@ -88,4 +88,12 @@ interface UiFormatPlugin {
     val descriptor: PluginDescriptor
     fun canHandle(artifact: UiArtifact): PluginMatch
     suspend fun parse(artifact: UiArtifact, context: PreviewContext): ParseResult
+
+    /**
+     * 生命周期钩子：插件即将被卸载时调用。
+     * 插件应在此清理静态缓存、全局 Hook、后台协程等，协助 ClassLoader 被 GC 回收，
+     * 避免热更新导致 Metaspace 溢出（审查建议 P1-1：ClassLoader 内存泄漏风险）。
+     * 默认空实现，不影响现有插件。
+     */
+    fun onDestroy() {}
 }
