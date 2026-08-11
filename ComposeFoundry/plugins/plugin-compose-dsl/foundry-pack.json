@@ -1,0 +1,11 @@
+{
+  "id": "com.foundry.plugin.composedsl",
+  "version": "1.0.0",
+  "type": "VIEW_RENDERER",
+  "entryClass": "com.foundry.plugin.composedsl.ComposeDslRenderEngine",
+  "libraries": [
+    "classes.jar"
+  ],
+  "minCoreVersion": "0.2.0",
+  "minSdk": 26
+}
