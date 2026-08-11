@@ -175,10 +175,12 @@ object DynamicPluginManager {
                 android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
             )
             val sig = info?.signingInfo
-            // 用 apkContentsSigners（API 28，跨版本稳定可见）取首个签名证书，
-            // 避免 SigningInfo.signingCertificate 在某些 compileSdk 下的符号解析问题。
-            val cert = sig?.apkContentsSigners?.firstOrNull()
-            cert?.let { PluginValidator.sha256Of(it.encoded.inputStream()) }
+            // 显式类型注解 + 方法调用，规避 compileSdk 下 X509Certificate 平台类型
+            // 的属性映射不稳定问题（signingCertificate / encoded 属性均可能 unresolved）。
+            val cert = sig?.apkContentsSigners?.firstOrNull() as? java.security.cert.X509Certificate
+            cert?.let {
+                PluginValidator.sha256Of(java.io.ByteArrayInputStream(it.getEncoded()))
+            }
         } else {
             PluginValidator.apkCertSha256V1(file)
         }
