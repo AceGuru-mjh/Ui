@@ -78,6 +78,19 @@ object DynamicPluginManager {
             }
         }
 
+        // ── 签名钉扎（可选加固）：manifest.signature 声明了证书指纹时，校验 APK 签名
+        //    证书 SHA-256 是否与钉扎值一致，防止中间人替换同内容的恶意 APK。
+        //    未声明（null）则跳过，保持向后兼容（仅 SHA-256 完整性校验）。
+        manifest.signature?.let { pinned ->
+            val actual = extractApkCertSha256(context, dexFile)
+            if (!PluginValidator.certMatches(actual, pinned)) {
+                throw SecurityException(
+                    "Plugin '${manifest.id}' signature pinning failed: " +
+                        "expected $pinned but got ${actual ?: "null"}"
+                )
+            }
+        }
+
         // 热更新：已注册同 id 且版本不同的插件，先卸载再注册。
         val existing = PluginManager.all().firstOrNull { it.descriptor.id == manifest.id }
         if (existing != null && existing.descriptor.version != manifest.version) {
@@ -149,4 +162,27 @@ object DynamicPluginManager {
         PluginManager.all().any { it.descriptor.id == id }
 
     fun loaderFor(id: String): ClassLoader? = loaders[id]
+
+    /**
+     * 提取未安装 APK 的签名证书 SHA-256（小写十六进制）。
+     * API 28+ 用 PackageManager.GET_SIGNING_CERTIFICATES（支持 v1/v2/v3）；
+     * 低版本回退到 PluginValidator 的 v1 证书解析。
+     */
+    private fun extractApkCertSha256(context: Context, file: File): String? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val info = context.packageManager.getPackageArchiveInfo(
+                file.absolutePath,
+                android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
+            )
+            val sig = info?.signingInfo
+            // 显式类型注解 + 方法调用，规避 compileSdk 下 X509Certificate 平台类型
+            // 的属性映射不稳定问题（signingCertificate / encoded 属性均可能 unresolved）。
+            val cert = sig?.apkContentsSigners?.firstOrNull() as? java.security.cert.X509Certificate
+            cert?.let {
+                PluginValidator.sha256Of(java.io.ByteArrayInputStream(it.getEncoded()))
+            }
+        } else {
+            PluginValidator.apkCertSha256V1(file)
+        }
+    }
 }
