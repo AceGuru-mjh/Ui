@@ -4,15 +4,19 @@ on:
   push:
     branches: [main, feat/plugin-production]
     paths:
-      - "plugins/**"
-      - "core/**"
-      - "gradle/**"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
+      - "ComposeFoundry/plugins/**"
+      - "ComposeFoundry/core/**"
+      - "ComposeFoundry/gradle/**"
+      - "ComposeFoundry/build.gradle.kts"
+      - "ComposeFoundry/settings.gradle.kts"
       - ".github/workflows/plugin-ci.yml"
   pull_request:
     branches: [main]
   workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: ComposeFoundry
 
 jobs:
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -97,13 +101,11 @@ jobs:
             PACK="plugins/$MODULE/build/foundry-pack"
             echo "--- $MODULE ---"
             ls -la "$PACK/"
-            # 验证 classes.jar 中存在 classes.dex
             unzip -l "$PACK/classes.jar" | grep classes.dex || {
               echo "ERROR: classes.dex not found in $PACK/classes.jar"
               exit 1
             }
             echo "  classes.dex verified"
-            # 验证 foundry-pack.json 存在且有效
             python3 -c "import json; j=json.load(open('$PACK/foundry-pack.json')); \
               assert j['id'], 'missing id'; \
               assert j['entryClass'], 'missing entryClass'; \
@@ -115,8 +117,8 @@ jobs:
         with:
           name: foundry-plugin-dex
           path: |
-            plugins/plugin-compose-dsl/build/foundry-pack/
-            plugins/plugin-simple-json/build/foundry-pack/
+            ComposeFoundry/plugins/plugin-compose-dsl/build/foundry-pack/
+            ComposeFoundry/plugins/plugin-simple-json/build/foundry-pack/
           retention-days: 7
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

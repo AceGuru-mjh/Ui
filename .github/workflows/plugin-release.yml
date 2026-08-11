@@ -17,8 +17,12 @@ on:
         default: true
 
 permissions:
-  contents: write      # 创建 Release
+  contents: write
   actions: read
+
+defaults:
+  run:
+    working-directory: ComposeFoundry
 
 jobs:
   build-and-release:
@@ -57,10 +61,9 @@ jobs:
       - name: Collect artifacts & SHA-256
         id: artifacts
         run: |
-          RELEASE_DIR="release/${{ steps.tag.outputs.value }}"
+          RELEASE_DIR="../release/${{ steps.tag.outputs.value }}"
           mkdir -p "$RELEASE_DIR"
 
-          # 逐个插件收集
           declare -A PACKS=(
             ["plugin-compose-dsl"]="plugins/plugin-compose-dsl/build/foundry-pack"
             ["plugin-simple-json"]="plugins/plugin-simple-json/build/foundry-pack"
@@ -73,12 +76,13 @@ jobs:
             HASH=$(sha256sum "$DST/classes.jar" | awk '{print $1}')
             SIZE=$(stat -c%s "$DST/classes.jar")
             echo "  $NAME: $HASH (${SIZE} bytes)"
-            echo "sha256_${NAME//-/_}=$HASH" >> "$GITHUB_OUTPUT"
-            echo "size_${NAME//-/_}=$SIZE" >> "$GITHUB_OUTPUT"
+            SAFE=$(echo "$NAME" | tr '-' '_')
+            echo "sha256_${SAFE}=$HASH" >> "$GITHUB_OUTPUT"
+            echo "size_${SAFE}=$SIZE" >> "$GITHUB_OUTPUT"
           done
 
-          # version-printer APK → A 类解析器载体
-          APK=$(find plugins/plugin-version-printer/build/outputs/apk/debug -name "*.apk" | head -1)
+          # version-printer APK
+          APK=$(find plugins/plugin-version-printer/build/outputs/apk/debug -name "*.apk" 2>/dev/null | head -1)
           if [ -f "$APK" ]; then
             cp "$APK" "$RELEASE_DIR/plugin-manifest.apk"
             APK_HASH=$(sha256sum "$RELEASE_DIR/plugin-manifest.apk" | awk '{print $1}')
@@ -87,7 +91,7 @@ jobs:
             echo "  plugin-manifest: $APK_HASH"
           fi
 
-          # 生成 SHA-256 清单 JSON
+          # 生成 SHA-256 清单
           NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           cat > "$RELEASE_DIR/manifest-sha256.json" <<JSON
           {
@@ -111,20 +115,22 @@ jobs:
           }
           JSON
 
-          echo "manifest=$RELEASE_DIR/manifest-sha256.json" >> "$GITHUB_OUTPUT"
+          echo "release_dir=$RELEASE_DIR" >> "$GITHUB_OUTPUT"
 
       # ── 打包 ZIP ──
       - name: Create ZIP archive
         run: |
-          RELEASE_DIR="release/${{ steps.tag.outputs.value }}"
-          ZIP="release/foundry-plugins-${{ steps.tag.outputs.value }}.zip"
+          RELEASE_DIR="../release/${{ steps.tag.outputs.value }}"
+          ZIP="../release/foundry-plugins-${{ steps.tag.outputs.value }}.zip"
+          mkdir -p ../release
           cd "$RELEASE_DIR" && zip -r "../../$(basename $ZIP)" . && cd -
           echo "  ZIP: $ZIP ($(stat -c%s $ZIP) bytes)"
 
       # ── 生成 Release Notes ──
       - name: Generate release notes
         run: |
-          cat > release/notes.md <<NOTES
+          mkdir -p ../release
+          cat > ../release/notes.md <<NOTES
           ## Plugin Artifacts
 
           | Plugin | SHA-256 |
