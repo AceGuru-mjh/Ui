@@ -1,0 +1,7 @@
+node_modules/
+out/
+*.log
+public/bgm.wav
+.claude/
+agent/
+.DS_Store
