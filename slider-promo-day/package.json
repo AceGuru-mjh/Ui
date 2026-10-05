@@ -1,0 +1,25 @@
+{
+  "name": "slider-promo-day",
+  "version": "1.0.0",
+  "private": true,
+  "description": "22s 9:16 day-mode UI evolution promo (block-built slider -> liquid glass -> 5-level neural glass), built with Remotion",
+  "scripts": {
+    "dev": "remotion studio",
+    "render": "remotion render UIEvolutionDay output.mp4 --codec=h264 --crf=10 --image-format=png --x264-preset=slow",
+    "compositions": "remotion compositions",
+    "still": "remotion still",
+    "upgrade": "remotion upgrade"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.532",
+    "@remotion/transitions": "^4.0.532",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "^4.0.532"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/web": "^0.0.357",
+    "typescript": "^7.0.2"
+  }
+}
